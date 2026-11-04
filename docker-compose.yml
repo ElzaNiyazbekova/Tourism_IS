@@ -1,0 +1,46 @@
+# Tourism IS - dev stack.  Owner: Amina A. (Architecture & Security)
+# Ports: only what is needed is published. The database is NOT reachable from the host/network.
+#   4200  Angular dev server (the app)      8000  API + Swagger docs (localhost only)
+services:
+  db:
+    image: postgres:16
+    env_file: .env                       # POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # no "ports:" on purpose - closed to the outside (Task 6: close unused ports)
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      DB_ENGINE: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app                    # hot reload; makemigrations writes migration files back to your repo
+    ports:
+      - "127.0.0.1:8000:8000"            # localhost only
+    command: python manage.py runserver 0.0.0.0:8000
+
+  frontend:
+    build: ./frontend
+    environment:
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    ports:
+      - "4200:4200"
+    command: npx ng serve --host 0.0.0.0 --port 4200 --proxy-config proxy.conf.js
+
+volumes:
+  pgdata:

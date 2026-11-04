@@ -4,6 +4,7 @@ Tourists are users with role = "tourist" (ER slide label: "CUSTOMERS / users").
 Integer primary keys; the PK column names (user_id, role_id ...) match db/create_tables.sql.
 """
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -38,9 +39,11 @@ class UserManager(BaseUserManager):
 
     def create_superuser(self, email, password, full_name="Admin", **extra):
         return self.create_user(email, password, full_name, role=Role.ADMIN, **extra)
+        is_staff=True
+        is_superuser=True
 
 
-class User(AbstractBaseUser):
+class User(AbstractBaseUser, PermissionsMixin):
     LANGUAGES = [("en", "English"), ("ru", "Русский"), ("kk", "Қазақша")]
 
     id = models.AutoField(primary_key=True, db_column="user_id")
@@ -89,7 +92,7 @@ class Guide(models.Model):
     bio = models.TextField(blank=True, default="")
     languages_spoken = models.CharField(max_length=40, default="en", help_text="comma list of en,ru,kk")
     is_active = models.BooleanField(default=True)   # deactivate instead of delete
-
+    is_staff = models.BooleanField(default=False)   # can log in to the admin UI
     class Meta:
         db_table = "guides"
 

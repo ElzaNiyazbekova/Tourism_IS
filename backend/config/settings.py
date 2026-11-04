@@ -49,6 +49,10 @@ ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0
 INSTALLED_APPS = [
     "django.contrib.auth",          # needed for password hashing/validators; the default admin UI is NOT installed
     "django.contrib.contenttypes",
+    "django.contrib.admin",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
@@ -65,13 +69,29 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",   # serves the Angular build in offline mode (Phase 5)
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",     # API uses JWT in a header, so cookies are not trusted anyway
 ]
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
-TEMPLATES = []          # API only: no Django templates
-
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
 AUTH_USER_MODEL = "accounts.User"
 
 # ---- database: PostgreSQL by default, SQLite for the offline demo ----------

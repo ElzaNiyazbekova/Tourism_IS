@@ -55,7 +55,7 @@ def _parse_decimal(request, name):
 
 def base_tour_queryset():
     """Active packages + 3 annotations computed with sub-queries (no joins => no duplicated rows)."""
-    next_open = (Departure.objects.filter(package=OuterRef("pk"), start_at__gt=timezone.now(), seats_available__gt=0)
+    next_open = (Departure.objects.filter(package=OuterRef("pk"), is_active=True, start_at__gt=timezone.now(), seats_available__gt=0)
                  .order_by("start_at").values("start_at")[:1])
     rating = Review.objects.filter(package=OuterRef("pk")).values("package").annotate(a=Avg("rating"), c=Count("pk"))
     return (
@@ -110,7 +110,7 @@ class TourListView(generics.ListAPIView):
         # date / guide-language filters look at the package's FUTURE departures
         date_from, date_to, guide_lang = _parse_date(self.request, "date_from"), _parse_date(self.request, "date_to"), p.get("guide_lang")
         if date_from or date_to or guide_lang:
-            deps = Departure.objects.filter(package=OuterRef("pk"), start_at__gt=timezone.now())
+            deps = Departure.objects.filter(package=OuterRef("pk"), is_active=True, start_at__gt=timezone.now())
             if date_from:
                 deps = deps.filter(start_at__gte=date_from)
             if date_to:
@@ -131,7 +131,7 @@ class TourDetailView(generics.RetrieveAPIView):
         return {**super().get_serializer_context(), "lang": request_lang(self.request)}
 
     def get_queryset(self):
-        upcoming = Departure.objects.filter(start_at__gt=timezone.now()).select_related("guide__user").order_by("start_at")
+        upcoming = Departure.objects.filter(is_active=True, start_at__gt=timezone.now()).select_related("guide__user").order_by("start_at")
         reviews = Review.objects.select_related("user").order_by("-created_at")[:20]
         return base_tour_queryset().prefetch_related(
             Prefetch("departures", queryset=upcoming, to_attr="upcoming_departures"),

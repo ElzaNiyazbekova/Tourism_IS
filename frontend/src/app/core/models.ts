@@ -38,3 +38,24 @@ export interface ApiErrorBody {
   next_available_departure?: NextDeparture | null;
   locked_until?: string;
 }
+
+// ---- Phase 2 ----
+export interface Payment { id: number; amount: string; status: 'Success' | 'Failed' | 'Pending'; transaction_ref: string; paid_at: string | null; }
+export interface BookingDetail extends Booking { payments: Payment[]; }
+export interface PayResult { result: 'pay' | 'fail'; message_key: string; payment: Payment; booking: Booking; }
+
+export interface Translation { language_code: Lang; title: string; description: string; }
+export interface AdminTour {
+  id: number; title: string; destination: number; destination_name: string; base_price: string; duration_days: number;
+  accommodation_included: boolean; transport_included: boolean; is_active: boolean; translations: Translation[];
+}
+export interface AdminDeparture {
+  id: number; package: number; package_title: string; guide: number; guide_name: string; start_at: string; end_at: string;
+  seats_total: number; seats_available: number; booked_seats: number; is_active: boolean;
+}
+export interface AdminGuide { id: number; full_name: string; languages: string[]; is_active: boolean; }
+export interface PackageRow {
+  package_id: number; title: string; destination: string; is_active: boolean;
+  active_bookings: number; completed_bookings: number; cancelled_bookings: number; revenue: string;
+}
+export interface PackageReport { packages: PackageRow[]; totals: Record<string, number | string>; }

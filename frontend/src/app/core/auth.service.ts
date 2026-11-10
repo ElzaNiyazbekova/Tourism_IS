@@ -19,6 +19,8 @@ export class AuthService {
   readonly user = signal<User | null>(null);
   readonly isLoggedIn = computed(() => this.user() !== null);
   readonly role = computed(() => this.user()?.role ?? null);
+  /** false until the stored token has been checked (so guards do not redirect too early on reload). */
+  readonly sessionReady = signal(false);
   private refreshing$: Observable<string> | null = null;
 
   get accessToken(): string | null { return this.read(ACCESS); }
@@ -39,10 +41,10 @@ export class AuthService {
 
   /** On page reload: if a token is stored, load the profile again. */
   restoreSession(): void {
-    if (!this.hasToken()) return;
+    if (!this.hasToken()) { this.sessionReady.set(true); return; }
     this.http.get<User>('/api/me').subscribe({
-      next: u => { this.user.set(u); },
-      error: () => this.clear(),
+      next: u => { this.user.set(u); this.sessionReady.set(true); },
+      error: () => { this.clear(); this.sessionReady.set(true); },
     });
   }
 

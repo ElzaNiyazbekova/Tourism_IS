@@ -69,6 +69,7 @@ class Departure(models.Model):
     end_at = models.DateTimeField()
     seats_total = models.IntegerField()
     seats_available = models.IntegerField()
+    is_active = models.BooleanField(default=True)   # deactivate instead of delete; an inactive slot frees the guide's time
 
     class Meta:
         db_table = "departures"

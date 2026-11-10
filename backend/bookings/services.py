@@ -35,7 +35,7 @@ def create_booking(user, departure_id, travelers_count, special_request=""):
             try:
                 dep = (Departure.objects.select_for_update(of=("self",))
                        .select_related("package", "guide")
-                       .get(pk=departure_id, package__is_active=True, guide__is_active=True))
+                       .get(pk=departure_id, is_active=True, package__is_active=True, guide__is_active=True))
             except Departure.DoesNotExist:
                 raise ApiError("departure_not_found", "errors.booking.departure_not_found",
                                "This departure does not exist.", 404)

@@ -41,6 +41,7 @@ import { errorText, toApiError } from '../../core/api-error';
       @if (booked(); as b) {
         <div class="alert alert-success" role="status">
           {{ 'booking.success' | translate: { ref: b.booking_ref } }}
+          <a [routerLink]="['/pay', b.id]" class="alert-link ms-2">{{ 'my_bookings.pay_now' | translate }}</a>
           <a routerLink="/my-bookings" class="alert-link ms-2">{{ 'booking.view_mine' | translate }}</a>
         </div>
       }

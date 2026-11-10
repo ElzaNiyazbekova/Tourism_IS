@@ -18,7 +18,7 @@ from .models import Departure
 def assert_no_guide_overlap(guide_id, start_at, end_at, exclude_departure_id=None):
     """Raise ApiError if the guide already has a departure overlapping [start_at, end_at)."""
     with transaction.atomic():
-        qs = Departure.objects.select_for_update().filter(guide_id=guide_id, start_at__lt=end_at, end_at__gt=start_at)
+        qs = Departure.objects.select_for_update().filter(guide_id=guide_id, is_active=True, start_at__lt=end_at, end_at__gt=start_at)
         if exclude_departure_id:
             qs = qs.exclude(pk=exclude_departure_id)
         clash = qs.first()
@@ -30,7 +30,7 @@ def assert_no_guide_overlap(guide_id, start_at, end_at, exclude_departure_id=Non
 
 def next_available_departure(guide_id, min_seats=1, exclude_departure_id=None):
     """First future departure of this guide with enough free seats, or None."""
-    qs = Departure.objects.filter(guide_id=guide_id, start_at__gt=timezone.now(), seats_available__gte=min_seats)
+    qs = Departure.objects.filter(guide_id=guide_id, is_active=True, start_at__gt=timezone.now(), seats_available__gte=min_seats)
     if exclude_departure_id:
         qs = qs.exclude(pk=exclude_departure_id)
     dep = qs.order_by("start_at").first()

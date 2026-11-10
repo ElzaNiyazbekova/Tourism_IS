@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict CH9JmmCzCGdHawYBUdfAwSAt0FYdUdMCSbrHWG9ctZmZSJXcvdNhJPSb9Q6kERW
+\restrict GjjtnU1DHrI3FyDnJogS0ZVP4O2kqXib8NHd8ugljeAnEdcUbZwgy5jraK3s2Tb
 
 -- Dumped from database version 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
@@ -43,16 +43,16 @@ SET default_table_access_method = heap;
 CREATE TABLE public.bookings (
     booking_id integer NOT NULL,
     booking_ref character varying(12) NOT NULL,
-    user_id integer NOT NULL,
-    departure_id integer NOT NULL,
     booking_date date NOT NULL,
     travel_date date NOT NULL,
     travelers_count integer NOT NULL,
     total_cost numeric(10,2) NOT NULL,
-    status character varying(20) DEFAULT 'Pending'::character varying NOT NULL,
-    special_request text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    status character varying(20) NOT NULL,
+    special_request text NOT NULL,
+    created_at timestamp with time zone NOT NULL,
     expires_at timestamp with time zone,
+    departure_id integer NOT NULL,
+    user_id integer NOT NULL,
     CONSTRAINT ck_bookings_cost CHECK ((total_cost >= (0)::numeric)),
     CONSTRAINT ck_bookings_dates CHECK ((travel_date >= booking_date)),
     CONSTRAINT ck_bookings_status CHECK (((status)::text = ANY ((ARRAY['Pending'::character varying, 'Confirmed'::character varying, 'Cancelled'::character varying, 'Completed'::character varying, 'Needs review'::character varying])::text[]))),
@@ -66,12 +66,13 @@ CREATE TABLE public.bookings (
 
 CREATE TABLE public.departures (
     departure_id integer NOT NULL,
-    package_id integer NOT NULL,
-    guide_id integer NOT NULL,
     start_at timestamp with time zone NOT NULL,
     end_at timestamp with time zone NOT NULL,
     seats_total integer NOT NULL,
     seats_available integer NOT NULL,
+    guide_id integer NOT NULL,
+    package_id integer NOT NULL,
+    is_active boolean NOT NULL,
     CONSTRAINT ck_departures_seats CHECK (((seats_available >= 0) AND (seats_available <= seats_total))),
     CONSTRAINT ck_departures_time CHECK ((end_at > start_at)),
     CONSTRAINT ck_departures_total CHECK ((seats_total > 0))
@@ -84,11 +85,27 @@ CREATE TABLE public.departures (
 
 CREATE TABLE public.package_translations (
     translation_id integer NOT NULL,
-    package_id integer NOT NULL,
     language_code character varying(2) NOT NULL,
     title character varying(200) NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
+    description text NOT NULL,
+    package_id integer NOT NULL,
     CONSTRAINT ck_translation_lang CHECK (((language_code)::text = ANY ((ARRAY['en'::character varying, 'ru'::character varying, 'kk'::character varying])::text[])))
+);
+
+
+--
+-- Name: payments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.payments (
+    payment_id integer NOT NULL,
+    amount numeric(10,2) NOT NULL,
+    status character varying(10) NOT NULL,
+    transaction_ref character varying(40) NOT NULL,
+    paid_at timestamp with time zone,
+    booking_id integer NOT NULL,
+    CONSTRAINT ck_payments_amount CHECK ((amount >= (0)::numeric)),
+    CONSTRAINT ck_payments_status CHECK (((status)::text = ANY ((ARRAY['Success'::character varying, 'Failed'::character varying])::text[])))
 );
 
 
@@ -98,12 +115,12 @@ CREATE TABLE public.package_translations (
 
 CREATE TABLE public.tour_packages (
     package_id integer NOT NULL,
-    destination_id integer NOT NULL,
     base_price numeric(10,2) NOT NULL,
     duration_days integer NOT NULL,
-    accommodation_included boolean DEFAULT false NOT NULL,
-    transport_included boolean DEFAULT false NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
+    accommodation_included boolean NOT NULL,
+    transport_included boolean NOT NULL,
+    is_active boolean NOT NULL,
+    destination_id integer NOT NULL,
     CONSTRAINT ck_packages_duration CHECK ((duration_days > 0)),
     CONSTRAINT ck_packages_price CHECK ((base_price >= (0)::numeric))
 );
@@ -116,12 +133,19 @@ CREATE TABLE public.tour_packages (
 CREATE VIEW public.analyst_booking_view AS
  SELECT p.package_id,
     COALESCE(t.title, '(no English title)'::character varying) AS package_title,
-    count(b.booking_id) AS active_bookings,
-    COALESCE(sum(b.total_cost), (0)::numeric) AS total_revenue
-   FROM (((public.tour_packages p
+    count(b.booking_id) FILTER (WHERE ((b.status)::text = ANY ((ARRAY['Pending'::character varying, 'Confirmed'::character varying])::text[]))) AS active_bookings,
+    count(b.booking_id) FILTER (WHERE ((b.status)::text = 'Completed'::text)) AS completed_bookings,
+    count(b.booking_id) FILTER (WHERE ((b.status)::text = 'Cancelled'::text)) AS cancelled_bookings,
+    (COALESCE(sum(pay.paid), (0)::numeric))::numeric(12,2) AS revenue
+   FROM ((((public.tour_packages p
      LEFT JOIN public.package_translations t ON (((t.package_id = p.package_id) AND ((t.language_code)::text = 'en'::text))))
      LEFT JOIN public.departures d ON ((d.package_id = p.package_id)))
-     LEFT JOIN public.bookings b ON (((b.departure_id = d.departure_id) AND ((b.status)::text = ANY ((ARRAY['Pending'::character varying, 'Confirmed'::character varying, 'Completed'::character varying])::text[])))))
+     LEFT JOIN public.bookings b ON ((b.departure_id = d.departure_id)))
+     LEFT JOIN ( SELECT payments.booking_id,
+            sum(payments.amount) AS paid
+           FROM public.payments
+          WHERE ((payments.status)::text = 'Success'::text)
+          GROUP BY payments.booking_id) pay ON ((pay.booking_id = b.booking_id)))
   GROUP BY p.package_id, t.title;
 
 
@@ -131,13 +155,13 @@ CREATE VIEW public.analyst_booking_view AS
 
 CREATE TABLE public.audit_log (
     audit_id integer NOT NULL,
-    user_id integer,
     action character varying(30) NOT NULL,
     table_name character varying(60) NOT NULL,
     record_id integer,
     old_value jsonb,
     new_value jsonb,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone NOT NULL,
+    user_id integer
 );
 
 
@@ -147,6 +171,81 @@ CREATE TABLE public.audit_log (
 
 ALTER TABLE public.audit_log ALTER COLUMN audit_id ADD GENERATED BY DEFAULT AS IDENTITY (
     SEQUENCE NAME public.audit_log_audit_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: auth_group; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.auth_group (
+    id integer NOT NULL,
+    name character varying(150) NOT NULL
+);
+
+
+--
+-- Name: auth_group_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.auth_group ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.auth_group_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: auth_group_permissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.auth_group_permissions (
+    id integer NOT NULL,
+    group_id integer NOT NULL,
+    permission_id integer NOT NULL
+);
+
+
+--
+-- Name: auth_group_permissions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.auth_group_permissions ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.auth_group_permissions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: auth_permission; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.auth_permission (
+    id integer NOT NULL,
+    name character varying(255) NOT NULL,
+    content_type_id integer NOT NULL,
+    codename character varying(100) NOT NULL
+);
+
+
+--
+-- Name: auth_permission_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.auth_permission ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.auth_permission_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -209,15 +308,66 @@ ALTER TABLE public.destinations ALTER COLUMN destination_id ADD GENERATED BY DEF
 
 
 --
+-- Name: django_content_type; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.django_content_type (
+    id integer NOT NULL,
+    app_label character varying(100) NOT NULL,
+    model character varying(100) NOT NULL
+);
+
+
+--
+-- Name: django_content_type_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.django_content_type ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.django_content_type_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: django_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.django_migrations (
+    id integer NOT NULL,
+    app character varying(255) NOT NULL,
+    name character varying(255) NOT NULL,
+    applied timestamp with time zone NOT NULL
+);
+
+
+--
+-- Name: django_migrations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.django_migrations ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public.django_migrations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: guides; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.guides (
     guide_id integer NOT NULL,
-    user_id integer NOT NULL,
-    bio text DEFAULT ''::text NOT NULL,
-    languages_spoken character varying(40) DEFAULT 'en'::character varying NOT NULL,
-    is_active boolean DEFAULT true NOT NULL
+    bio text NOT NULL,
+    languages_spoken character varying(40) NOT NULL,
+    is_active boolean NOT NULL,
+    user_id integer NOT NULL
 );
 
 
@@ -241,13 +391,13 @@ ALTER TABLE public.guides ALTER COLUMN guide_id ADD GENERATED BY DEFAULT AS IDEN
 
 CREATE TABLE public.notifications (
     notification_id integer NOT NULL,
-    user_id integer NOT NULL,
-    booking_id integer,
     type character varying(30) NOT NULL,
     message_key character varying(100) NOT NULL,
-    params jsonb DEFAULT '{}'::jsonb NOT NULL,
-    is_read boolean DEFAULT false NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    params jsonb NOT NULL,
+    is_read boolean NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    booking_id integer,
+    user_id integer NOT NULL
 );
 
 
@@ -280,22 +430,6 @@ ALTER TABLE public.package_translations ALTER COLUMN translation_id ADD GENERATE
 
 
 --
--- Name: payments; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.payments (
-    payment_id integer NOT NULL,
-    booking_id integer NOT NULL,
-    amount numeric(10,2) NOT NULL,
-    status character varying(10) NOT NULL,
-    transaction_ref character varying(40) NOT NULL,
-    paid_at timestamp with time zone,
-    CONSTRAINT ck_payments_amount CHECK ((amount >= (0)::numeric)),
-    CONSTRAINT ck_payments_status CHECK (((status)::text = ANY ((ARRAY['Success'::character varying, 'Failed'::character varying])::text[])))
-);
-
-
---
 -- Name: payments_payment_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -315,11 +449,11 @@ ALTER TABLE public.payments ALTER COLUMN payment_id ADD GENERATED BY DEFAULT AS 
 
 CREATE TABLE public.reviews (
     review_id integer NOT NULL,
+    rating smallint NOT NULL,
+    comment text NOT NULL,
+    created_at timestamp with time zone NOT NULL,
     user_id integer NOT NULL,
     package_id integer NOT NULL,
-    rating smallint NOT NULL,
-    comment text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT ck_reviews_rating CHECK (((rating >= 1) AND (rating <= 5)))
 );
 
@@ -386,14 +520,14 @@ CREATE TABLE public.users (
     email character varying(254) NOT NULL,
     password_hash character varying(128) NOT NULL,
     full_name character varying(150) NOT NULL,
-    phone character varying(30) DEFAULT ''::character varying NOT NULL,
-    role_id integer NOT NULL,
-    preferred_language character varying(2) DEFAULT 'en'::character varying NOT NULL,
-    mfa_enabled boolean DEFAULT false NOT NULL,
-    mfa_secret character varying(64) DEFAULT ''::character varying NOT NULL,
-    failed_login_count smallint DEFAULT 0 NOT NULL,
+    phone character varying(30) NOT NULL,
+    preferred_language character varying(2) NOT NULL,
+    mfa_enabled boolean NOT NULL,
+    mfa_secret character varying(64) NOT NULL,
+    failed_login_count smallint NOT NULL,
     locked_until timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    role_id integer NOT NULL,
     CONSTRAINT ck_users_email_format CHECK (((email)::text ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'::text)),
     CONSTRAINT ck_users_failed_login CHECK ((failed_login_count >= 0)),
     CONSTRAINT ck_users_language CHECK (((preferred_language)::text = ANY ((ARRAY['en'::character varying, 'ru'::character varying, 'kk'::character varying])::text[])))
@@ -420,6 +554,54 @@ ALTER TABLE public.users ALTER COLUMN user_id ADD GENERATED BY DEFAULT AS IDENTI
 
 ALTER TABLE ONLY public.audit_log
     ADD CONSTRAINT audit_log_pkey PRIMARY KEY (audit_id);
+
+
+--
+-- Name: auth_group auth_group_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_group
+    ADD CONSTRAINT auth_group_name_key UNIQUE (name);
+
+
+--
+-- Name: auth_group_permissions auth_group_permissions_group_id_permission_id_0cd325b0_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_group_permissions
+    ADD CONSTRAINT auth_group_permissions_group_id_permission_id_0cd325b0_uniq UNIQUE (group_id, permission_id);
+
+
+--
+-- Name: auth_group_permissions auth_group_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_group_permissions
+    ADD CONSTRAINT auth_group_permissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: auth_group auth_group_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_group
+    ADD CONSTRAINT auth_group_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: auth_permission auth_permission_content_type_id_codename_01ab375a_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_permission
+    ADD CONSTRAINT auth_permission_content_type_id_codename_01ab375a_uniq UNIQUE (content_type_id, codename);
+
+
+--
+-- Name: auth_permission auth_permission_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_permission
+    ADD CONSTRAINT auth_permission_pkey PRIMARY KEY (id);
 
 
 --
@@ -455,11 +637,35 @@ ALTER TABLE ONLY public.destinations
 
 
 --
+-- Name: django_content_type django_content_type_app_label_model_76bd3d3b_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.django_content_type
+    ADD CONSTRAINT django_content_type_app_label_model_76bd3d3b_uniq UNIQUE (app_label, model);
+
+
+--
+-- Name: django_content_type django_content_type_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.django_content_type
+    ADD CONSTRAINT django_content_type_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: django_migrations django_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.django_migrations
+    ADD CONSTRAINT django_migrations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: departures ex_departures_guide_no_overlap; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.departures
-    ADD CONSTRAINT ex_departures_guide_no_overlap EXCLUDE USING gist (guide_id WITH =, tstzrange(start_at, end_at) WITH &&);
+    ADD CONSTRAINT ex_departures_guide_no_overlap EXCLUDE USING gist (guide_id WITH =, tstzrange(start_at, end_at) WITH &&) WHERE (is_active);
 
 
 --
@@ -583,6 +789,55 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: audit_log_user_id_a1b3392d; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX audit_log_user_id_a1b3392d ON public.audit_log USING btree (user_id);
+
+
+--
+-- Name: auth_group_name_a6ea08ec_like; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX auth_group_name_a6ea08ec_like ON public.auth_group USING btree (name varchar_pattern_ops);
+
+
+--
+-- Name: auth_group_permissions_group_id_b120cbf9; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX auth_group_permissions_group_id_b120cbf9 ON public.auth_group_permissions USING btree (group_id);
+
+
+--
+-- Name: auth_group_permissions_permission_id_84c5c92e; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX auth_group_permissions_permission_id_84c5c92e ON public.auth_group_permissions USING btree (permission_id);
+
+
+--
+-- Name: auth_permission_content_type_id_2f476e4b; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX auth_permission_content_type_id_2f476e4b ON public.auth_permission USING btree (content_type_id);
+
+
+--
+-- Name: bookings_booking_ref_04beec59_like; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bookings_booking_ref_04beec59_like ON public.bookings USING btree (booking_ref varchar_pattern_ops);
+
+
+--
+-- Name: departures_package_id_efede256; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX departures_package_id_efede256 ON public.departures USING btree (package_id);
+
+
+--
 -- Name: ix_audit_table_record; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -639,6 +894,55 @@ CREATE INDEX ix_packages_destination ON public.tour_packages USING btree (destin
 
 
 --
+-- Name: notifications_booking_id_65edc4c5; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX notifications_booking_id_65edc4c5 ON public.notifications USING btree (booking_id);
+
+
+--
+-- Name: package_translations_package_id_89111041; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX package_translations_package_id_89111041 ON public.package_translations USING btree (package_id);
+
+
+--
+-- Name: payments_booking_id_fa2b6c3e; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX payments_booking_id_fa2b6c3e ON public.payments USING btree (booking_id);
+
+
+--
+-- Name: payments_transaction_ref_cadde9d5_like; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX payments_transaction_ref_cadde9d5_like ON public.payments USING btree (transaction_ref varchar_pattern_ops);
+
+
+--
+-- Name: reviews_package_id_16d464f2; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reviews_package_id_16d464f2 ON public.reviews USING btree (package_id);
+
+
+--
+-- Name: reviews_user_id_c23b0903; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reviews_user_id_c23b0903 ON public.reviews USING btree (user_id);
+
+
+--
+-- Name: roles_name_51259447_like; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX roles_name_51259447_like ON public.roles USING btree (name varchar_pattern_ops);
+
+
+--
 -- Name: uq_bookings_active_user_departure; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -646,120 +950,158 @@ CREATE UNIQUE INDEX uq_bookings_active_user_departure ON public.bookings USING b
 
 
 --
--- Name: audit_log audit_log_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: users_email_0ea73cca_like; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX users_email_0ea73cca_like ON public.users USING btree (email varchar_pattern_ops);
+
+
+--
+-- Name: users_role_id_1900a745; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX users_role_id_1900a745 ON public.users USING btree (role_id);
+
+
+--
+-- Name: audit_log audit_log_user_id_a1b3392d_fk_users_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.audit_log
-    ADD CONSTRAINT audit_log_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT audit_log_user_id_a1b3392d_fk_users_user_id FOREIGN KEY (user_id) REFERENCES public.users(user_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: bookings bookings_departure_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: auth_group_permissions auth_group_permissio_permission_id_84c5c92e_fk_auth_perm; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_group_permissions
+    ADD CONSTRAINT auth_group_permissio_permission_id_84c5c92e_fk_auth_perm FOREIGN KEY (permission_id) REFERENCES public.auth_permission(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: auth_group_permissions auth_group_permissions_group_id_b120cbf9_fk_auth_group_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_group_permissions
+    ADD CONSTRAINT auth_group_permissions_group_id_b120cbf9_fk_auth_group_id FOREIGN KEY (group_id) REFERENCES public.auth_group(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: auth_permission auth_permission_content_type_id_2f476e4b_fk_django_co; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.auth_permission
+    ADD CONSTRAINT auth_permission_content_type_id_2f476e4b_fk_django_co FOREIGN KEY (content_type_id) REFERENCES public.django_content_type(id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: bookings bookings_departure_id_4ee7fde4_fk_departures_departure_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.bookings
-    ADD CONSTRAINT bookings_departure_id_fkey FOREIGN KEY (departure_id) REFERENCES public.departures(departure_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT bookings_departure_id_4ee7fde4_fk_departures_departure_id FOREIGN KEY (departure_id) REFERENCES public.departures(departure_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: bookings bookings_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: bookings bookings_user_id_6e734b08_fk_users_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.bookings
-    ADD CONSTRAINT bookings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT bookings_user_id_6e734b08_fk_users_user_id FOREIGN KEY (user_id) REFERENCES public.users(user_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: departures departures_guide_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.departures
-    ADD CONSTRAINT departures_guide_id_fkey FOREIGN KEY (guide_id) REFERENCES public.guides(guide_id) ON DELETE RESTRICT;
-
-
---
--- Name: departures departures_package_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: departures departures_guide_id_386893ff_fk_guides_guide_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.departures
-    ADD CONSTRAINT departures_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.tour_packages(package_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT departures_guide_id_386893ff_fk_guides_guide_id FOREIGN KEY (guide_id) REFERENCES public.guides(guide_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: guides guides_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: departures departures_package_id_efede256_fk_tour_packages_package_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.departures
+    ADD CONSTRAINT departures_package_id_efede256_fk_tour_packages_package_id FOREIGN KEY (package_id) REFERENCES public.tour_packages(package_id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: guides guides_user_id_98c2b469_fk_users_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.guides
-    ADD CONSTRAINT guides_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT guides_user_id_98c2b469_fk_users_user_id FOREIGN KEY (user_id) REFERENCES public.users(user_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: notifications notifications_booking_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.notifications
-    ADD CONSTRAINT notifications_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(booking_id) ON DELETE RESTRICT;
-
-
---
--- Name: notifications notifications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: notifications notifications_booking_id_65edc4c5_fk_bookings_booking_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.notifications
-    ADD CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT notifications_booking_id_65edc4c5_fk_bookings_booking_id FOREIGN KEY (booking_id) REFERENCES public.bookings(booking_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: package_translations package_translations_package_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: notifications notifications_user_id_468e288d_fk_users_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_user_id_468e288d_fk_users_user_id FOREIGN KEY (user_id) REFERENCES public.users(user_id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: package_translations package_translations_package_id_89111041_fk_tour_pack; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.package_translations
-    ADD CONSTRAINT package_translations_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.tour_packages(package_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT package_translations_package_id_89111041_fk_tour_pack FOREIGN KEY (package_id) REFERENCES public.tour_packages(package_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: payments payments_booking_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: payments payments_booking_id_fa2b6c3e_fk_bookings_booking_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.payments
-    ADD CONSTRAINT payments_booking_id_fkey FOREIGN KEY (booking_id) REFERENCES public.bookings(booking_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT payments_booking_id_fa2b6c3e_fk_bookings_booking_id FOREIGN KEY (booking_id) REFERENCES public.bookings(booking_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: reviews reviews_package_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reviews
-    ADD CONSTRAINT reviews_package_id_fkey FOREIGN KEY (package_id) REFERENCES public.tour_packages(package_id) ON DELETE RESTRICT;
-
-
---
--- Name: reviews reviews_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: reviews reviews_package_id_16d464f2_fk_tour_packages_package_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.reviews
-    ADD CONSTRAINT reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(user_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT reviews_package_id_16d464f2_fk_tour_packages_package_id FOREIGN KEY (package_id) REFERENCES public.tour_packages(package_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: tour_packages tour_packages_destination_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: reviews reviews_user_id_c23b0903_fk_users_user_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reviews
+    ADD CONSTRAINT reviews_user_id_c23b0903_fk_users_user_id FOREIGN KEY (user_id) REFERENCES public.users(user_id) DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: tour_packages tour_packages_destination_id_0ee286ff_fk_destinati; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tour_packages
-    ADD CONSTRAINT tour_packages_destination_id_fkey FOREIGN KEY (destination_id) REFERENCES public.destinations(destination_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT tour_packages_destination_id_0ee286ff_fk_destinati FOREIGN KEY (destination_id) REFERENCES public.destinations(destination_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
--- Name: users users_role_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: users users_role_id_1900a745_fk_roles_role_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.roles(role_id) ON DELETE RESTRICT;
+    ADD CONSTRAINT users_role_id_1900a745_fk_roles_role_id FOREIGN KEY (role_id) REFERENCES public.roles(role_id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict CH9JmmCzCGdHawYBUdfAwSAt0FYdUdMCSbrHWG9ctZmZSJXcvdNhJPSb9Q6kERW
+\unrestrict GjjtnU1DHrI3FyDnJogS0ZVP4O2kqXib8NHd8ugljeAnEdcUbZwgy5jraK3s2Tb
 

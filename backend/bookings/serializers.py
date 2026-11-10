@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from core.lang import pick_translation
 
-from .models import Booking
+from .models import Booking, Payment
 
 
 class BookingCreateSerializer(serializers.Serializer):
@@ -27,3 +27,22 @@ class BookingSerializer(serializers.ModelSerializer):
     def get_package_title(self, obj):
         t = pick_translation(obj.departure.package.translations.all(), self.context.get("lang", "en"))
         return t.title if t else f"#{obj.departure.package_id}"
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ["id", "amount", "status", "transaction_ref", "paid_at"]
+
+
+class PaySerializer(serializers.Serializer):
+    """Body of POST /api/bookings/{id}/pay - the button pressed on the mock gateway screen."""
+    result = serializers.ChoiceField(choices=["pay", "fail"])
+
+
+class BookingDetailSerializer(BookingSerializer):
+    """One booking + its payment attempts (used by the payment screen)."""
+    payments = PaymentSerializer(many=True, read_only=True)
+
+    class Meta(BookingSerializer.Meta):
+        fields = BookingSerializer.Meta.fields + ["payments"]

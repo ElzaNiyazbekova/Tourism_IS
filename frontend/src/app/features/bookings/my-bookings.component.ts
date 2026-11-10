@@ -43,6 +43,9 @@ import { AppDatePipe, AppMoneyPipe } from '../../core/pipes';
                 <td>{{ b.total_cost | appMoney }}</td>
                 <td>
                   <span class="badge" [class]="badge(b)">{{ statusKey(b) | translate }}</span>
+                  @if (b.status === 'Pending') {
+                    <a class="btn btn-sm btn-success mt-1" [routerLink]="['/pay', b.id]">{{ 'my_bookings.pay_now' | translate }}</a>
+                  }
                   @if (b.status === 'Pending' && b.expires_at) {
                     <div class="small text-muted">{{ 'my_bookings.pay_before' | translate }} {{ b.expires_at | appDate: true }}</div>
                   }

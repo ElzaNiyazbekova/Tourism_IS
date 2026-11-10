@@ -9,7 +9,8 @@
     "register": "Sign up",
     "logout": "Log out",
     "language": "Language",
-    "menu": "Menu"
+    "menu": "Menu",
+    "admin": "Admin"
   },
   "common": {
     "loading": "Loading…",
@@ -70,7 +71,8 @@
     "travel_date": "Departure",
     "total": "Total",
     "status": "Status",
-    "pay_before": "Pay before"
+    "pay_before": "Pay before",
+    "pay_now": "Pay now"
   },
   "status": {
     "pending": "Pending",
@@ -121,10 +123,68 @@
       "duplicate": "You already booked this departure.",
       "departure_full": "Not enough free seats on this departure.",
       "departure_in_past": "This departure has already started.",
-      "departure_not_found": "This departure does not exist."
+      "departure_not_found": "This departure does not exist.",
+      "not_found": "Booking not found."
     },
     "departure": {
-      "guide_overlap": "This guide already has another departure at that time."
+      "guide_overlap": "This guide already has another departure at that time.",
+      "has_bookings": "This departure has active bookings; tour, guide and time cannot be changed."
+    },
+    "payment": {
+      "already_paid": "This booking is already paid.",
+      "not_payable": "This booking cannot be paid.",
+      "expired": "The payment window has expired."
     }
+  },
+  "payment": {
+    "title": "Payment",
+    "back": "Back to my bookings",
+    "mock_note": "Demo payment: no real money is charged. \"Pay\" simulates a successful payment, \"Fail\" a declined one.",
+    "pay": "Pay",
+    "fail": "Simulate failure",
+    "success": "Payment successful. Your booking is confirmed.",
+    "failed": "Payment failed. Your booking is still pending, you can try again.",
+    "history": "Payment attempts",
+    "no_payments": "No payment attempts yet.",
+    "reference": "Reference",
+    "amount": "Amount",
+    "status_success": "Success",
+    "status_failed": "Failed",
+    "status_pending": "Pending"
+  },
+  "admin": {
+    "title": "Administration",
+    "tours": "Tours",
+    "departures": "Departures",
+    "reports": "Reports",
+    "reports_note": "Aggregate numbers only. No customer names or contacts are shown.",
+    "new_tour": "New tour",
+    "edit_tour": "Edit tour",
+    "new_departure": "New departure",
+    "edit_departure": "Edit departure",
+    "no_tours": "No tours yet.",
+    "no_departures": "No departures yet.",
+    "col_title": "Title",
+    "col_price": "Base price",
+    "duration": "Days",
+    "description": "Description",
+    "active": "Active",
+    "inactive": "Inactive",
+    "edit": "Edit",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "save": "Save",
+    "lang_en": "English",
+    "lang_ru": "Russian",
+    "lang_kk": "Kazakh",
+    "tour": "Tour",
+    "start": "Start",
+    "end": "End",
+    "seats": "Booked / seats",
+    "seats_total": "Total seats",
+    "active_bookings": "Active bookings",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "revenue": "Revenue"
   }
 }

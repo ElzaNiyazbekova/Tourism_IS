@@ -87,12 +87,13 @@ CREATE TABLE departures (
     end_at          TIMESTAMPTZ NOT NULL,
     seats_total     INTEGER NOT NULL,
     seats_available INTEGER NOT NULL,
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,             -- deactivate, never delete; inactive slots free the guide's time
     CONSTRAINT ck_departures_time  CHECK (end_at > start_at),
     CONSTRAINT ck_departures_total CHECK (seats_total > 0),
     CONSTRAINT ck_departures_seats CHECK (seats_available >= 0 AND seats_available <= seats_total),
-    -- BR-01 / FR-01: the same guide can never have two overlapping slots ('[)' ranges: back-to-back is fine)
+    -- BR-01 / FR-01: the same guide can never have two overlapping ACTIVE slots ('[)' ranges: back-to-back is fine)
     CONSTRAINT ex_departures_guide_no_overlap
-        EXCLUDE USING gist (guide_id WITH =, tstzrange(start_at, end_at) WITH &&)
+        EXCLUDE USING gist (guide_id WITH =, tstzrange(start_at, end_at) WITH &&) WHERE (is_active)
 );
 
 -- ---------- bookings, payments --------------------------------------
@@ -175,16 +176,19 @@ CREATE INDEX ix_package_translations_fts
     ON package_translations USING gin (to_tsvector('simple', title || ' ' || description));
 
 -- ---------- rule 12: analyst sees aggregates only -------------------
--- No email, no phone, no names. Packages with zero active bookings still show 0 (LEFT JOIN,
--- status filter lives in the ON clause - this is the Task 9 query).
+-- No email, no phone, no names. Packages with zero bookings still show 0 (LEFT JOIN).
+-- active = Pending + Confirmed (Task 9 definition); revenue = successful payments only.
 CREATE VIEW analyst_booking_view AS
 SELECT p.package_id,
-       COALESCE(t.title, '(no English title)')            AS package_title,
-       COUNT(b.booking_id)                                 AS active_bookings,
-       COALESCE(SUM(b.total_cost), 0)                      AS total_revenue
+       COALESCE(t.title, '(no English title)')                                          AS package_title,
+       COUNT(b.booking_id) FILTER (WHERE b.status IN ('Pending', 'Confirmed'))          AS active_bookings,
+       COUNT(b.booking_id) FILTER (WHERE b.status = 'Completed')                        AS completed_bookings,
+       COUNT(b.booking_id) FILTER (WHERE b.status = 'Cancelled')                        AS cancelled_bookings,
+       COALESCE(SUM(pay.paid), 0)::numeric(12, 2)                                       AS revenue
 FROM tour_packages p
 LEFT JOIN package_translations t ON t.package_id = p.package_id AND t.language_code = 'en'
 LEFT JOIN departures d           ON d.package_id = p.package_id
 LEFT JOIN bookings b             ON b.departure_id = d.departure_id
-                                AND b.status IN ('Pending','Confirmed','Completed')
+LEFT JOIN (SELECT booking_id, SUM(amount) AS paid FROM payments WHERE status = 'Success' GROUP BY booking_id) pay
+                                 ON pay.booking_id = b.booking_id
 GROUP BY p.package_id, t.title;

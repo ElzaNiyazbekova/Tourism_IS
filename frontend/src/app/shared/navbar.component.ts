@@ -22,6 +22,9 @@ import { Lang } from '../core/models';
             @if (auth.role() === 'tourist') {
               <li class="nav-item"><a class="nav-link" routerLink="/my-bookings" routerLinkActive="active">{{ 'nav.my_bookings' | translate }}</a></li>
             }
+            @if (isStaff()) {
+              <li class="nav-item"><a class="nav-link" routerLink="/admin" routerLinkActive="active">{{ 'nav.admin' | translate }}</a></li>
+            }
           </ul>
 
           <div class="btn-group me-3" role="group" [attr.aria-label]="'nav.language' | translate">
@@ -48,6 +51,7 @@ export class NavbarComponent {
   language = inject(LanguageService);
   languages = LANGUAGES;
   open = signal(false);
+  isStaff = () => ['manager', 'admin', 'analyst'].includes(this.auth.role() ?? '');
 
   setLang(code: Lang): void {
     this.language.set(code);

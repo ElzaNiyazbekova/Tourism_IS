@@ -20,6 +20,7 @@ from core.exceptions import ApiError
 
 from .audit import audit
 from .models import Booking, Payment
+from .services import create_booking
 
 
 def mock_gateway(outcome: str):
@@ -65,3 +66,33 @@ def pay_booking(user, booking_id, outcome):
             audit(user, "payment_failed", "payments", payment.pk, None,
                   {"booking": booking.booking_ref, "transaction_ref": ref})
     return booking, payment
+
+
+class _PaymentDeclined(Exception):
+    """Internal signal: the gateway said Failed -> leave the transaction so everything is rolled back."""
+
+
+def book_and_pay(user, departure_id, travelers_count, outcome, special_request=""):
+    """
+    Checkout = ONE database transaction (Task 9 transaction, rule 10):
+
+        lock departure -> checks -> seats - n -> insert booking (Pending) -> gateway -> insert payment
+        -> (Success) booking = Confirmed + audit row
+
+    * Success: booking, seats, payment and audit are saved together (all-or-nothing).
+    * Fail (or any error in any step): ROLLBACK - no booking row, no payment row, and the seats are back
+      (the decrement was part of the same transaction). The tourist gets 402 `payment_failed`.
+    A short audit row `checkout_rolled_back` is written AFTER the rollback so the attempt stays visible.
+    """
+    try:
+        with transaction.atomic():
+            booking = create_booking(user, departure_id, travelers_count, special_request)
+            booking, payment = pay_booking(user, booking.pk, outcome)     # nested: joins this transaction
+            if payment.status != Payment.SUCCESS:
+                raise _PaymentDeclined()
+            return booking, payment
+    except _PaymentDeclined:
+        audit(user, "checkout_rolled_back", "bookings", None, None,
+              {"departure": departure_id, "travelers": travelers_count, "reason": "payment_failed"})
+        raise ApiError("payment_failed", "errors.payment.failed_rolled_back",
+                       "The payment failed. Nothing was booked and the seats are free again.", 402)

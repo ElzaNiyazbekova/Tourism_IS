@@ -2,13 +2,17 @@
 Tests: booking, mock payment, analyst report.   Owner: Dastan (Testing) with Aitore (payment) / Amina A.
 Run:  python manage.py test bookings
 """
+import threading
 from datetime import timedelta
-from unittest import mock
+from unittest import mock, skipUnless
 
-from django.test import TestCase
+from django.db import IntegrityError, connection, transaction
+from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 from bookings.models import AuditLog, Booking, Payment
+from catalog.models import Departure
+from core.exceptions import ApiError
 from core.testing import client_for, make_departure, make_guide, make_package, make_user
 
 
@@ -208,3 +212,124 @@ class AnalystReportTests(TestCase):
         for url in ("/api/admin/tours", "/api/admin/departures", "/api/admin/guides", "/api/admin/destinations"):
             self.assertEqual(c.get(url).status_code, 403, url)
         self.assertEqual(c.get("/api/bookings/mine").status_code, 403)
+
+
+def checkout(client, dep, result, travelers=2):
+    return client.post("/api/bookings/checkout", {"departure": dep.pk, "travelers_count": travelers, "result": result}, format="json")
+
+
+class CheckoutRollbackTests(TestCase):
+    """Task 9 transaction: booking + seats + payment are ONE unit. A failed payment rolls everything back."""
+
+    def setUp(self):
+        self.tourist = make_user("tourist")
+        self.dep = make_departure(seats=5)
+        self.c = client_for(self.tourist)
+
+    def state(self):
+        self.dep.refresh_from_db()
+        return Booking.objects.count(), Payment.objects.count(), self.dep.seats_available
+
+    def test_K1_pay_saves_booking_seats_and_payment_together(self):
+        r = checkout(self.c, self.dep, "pay")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(r.data["booking"]["status"], "Confirmed")
+        self.assertEqual(self.state(), (1, 1, 3))
+        self.assertEqual(Payment.objects.get().status, "Success")
+
+    def test_K2_failed_payment_leaves_no_booking_and_seats_are_returned(self):
+        r = checkout(self.c, self.dep, "fail")
+        self.assertEqual((r.status_code, r.data["code"]), (402, "payment_failed"))
+        self.assertEqual(r.data["message_key"], "errors.payment.failed_rolled_back")
+        self.assertEqual(self.state(), (0, 0, 5))                                # nothing saved, all 5 seats free
+        self.assertFalse(AuditLog.objects.filter(table_name="bookings", action="create").exists())
+        self.assertTrue(AuditLog.objects.filter(action="checkout_rolled_back").exists())   # the attempt is still traceable
+
+    def test_K3_crash_after_the_payment_row_was_inserted_rolls_everything_back(self):
+        with mock.patch("bookings.payments.audit", side_effect=RuntimeError("boom")):
+            with self.assertRaises(RuntimeError):
+                checkout(self.c, self.dep, "pay")
+        self.assertEqual(self.state(), (0, 0, 5))
+
+    def test_K4_not_enough_seats_changes_nothing(self):
+        r = checkout(self.c, self.dep, "pay", travelers=6)
+        self.assertEqual((r.status_code, r.data["code"]), (409, "departure_full"))
+        self.assertEqual(self.state(), (0, 0, 5))
+
+    def test_K5_try_again_after_a_failed_payment(self):
+        checkout(self.c, self.dep, "fail")
+        r = checkout(self.c, self.dep, "pay")                                    # no "duplicate booking": the first was rolled back
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(self.state(), (1, 1, 3))
+
+    def test_K6_roles_and_validation(self):
+        self.assertEqual(checkout(client_for(), self.dep, "pay").status_code, 401)
+        self.assertEqual(checkout(client_for(make_user("guide")), self.dep, "pay").status_code, 403)
+        bad = self.c.post("/api/bookings/checkout", {"departure": self.dep.pk, "travelers_count": 1, "result": "maybe"}, format="json")
+        self.assertEqual(bad.status_code, 400)
+        self.assertEqual(self.state(), (0, 0, 5))
+
+
+class SeatLockingTests(TestCase):
+    """Booking rule: the last seat can be sold only once; seats never go below 0."""
+
+    def test_S1_second_tourist_is_rejected_when_the_last_seat_is_taken(self):
+        dep = make_departure(seats=1)
+        first = book(client_for(make_user("tourist")), dep, 1)
+        second = book(client_for(make_user("tourist")), dep, 1)
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual((second.status_code, second.data["code"]), (409, "departure_full"))
+        dep.refresh_from_db()
+        self.assertEqual(dep.seats_available, 0)
+        self.assertEqual(Booking.objects.filter(departure=dep).count(), 1)
+
+    def test_S2_database_check_is_the_last_safety_net(self):
+        """Even if the Python check were skipped, the CHECK (seats_available >= 0) refuses a negative number."""
+        dep = make_departure(seats=1)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Departure.objects.filter(pk=dep.pk).update(seats_available=-1)
+        dep.refresh_from_db()
+        self.assertEqual(dep.seats_available, 1)
+
+
+@skipUnless(connection.vendor == "postgresql", "row locks (SELECT ... FOR UPDATE) need PostgreSQL; SQLite ignores them")
+class SimultaneousBookingTests(TransactionTestCase):
+    """
+    Real parallel requests. Run on PostgreSQL:  DB_ENGINE=postgres python manage.py test bookings.tests.SimultaneousBookingTests
+    The threads all start at the same moment (Barrier); the row lock in create_booking lets one in at a time.
+    """
+
+    def race(self, seats, workers):
+        from bookings.services import create_booking
+        dep = make_departure(seats=seats)
+        tourists = [make_user("tourist") for _ in range(workers)]
+        barrier, results = threading.Barrier(workers), []
+
+        def worker(user):
+            try:
+                barrier.wait()
+                create_booking(user, dep.pk, 1)
+                results.append("ok")
+            except ApiError as e:
+                results.append(e.api_code)
+            finally:
+                connection.close()                                               # each thread has its own connection
+
+        threads = [threading.Thread(target=worker, args=(u,)) for u in tourists]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        dep.refresh_from_db()
+        return dep, results
+
+    def test_S3_two_tourists_one_seat_exactly_one_wins(self):
+        dep, results = self.race(seats=1, workers=2)
+        self.assertEqual(sorted(results), ["departure_full", "ok"])
+        self.assertEqual(dep.seats_available, 0)                                 # never below 0
+        self.assertEqual(Booking.objects.filter(departure=dep).count(), 1)
+
+    def test_S4_eight_tourists_three_seats_exactly_three_win(self):
+        dep, results = self.race(seats=3, workers=8)
+        self.assertEqual(results.count("ok"), 3)
+        self.assertEqual(results.count("departure_full"), 5)
+        self.assertEqual(dep.seats_available, 0)
+        self.assertEqual(Booking.objects.filter(departure=dep).count(), 3)

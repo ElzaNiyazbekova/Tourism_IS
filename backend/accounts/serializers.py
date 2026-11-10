@@ -41,3 +41,9 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "email", "full_name", "phone", "role", "preferred_language", "mfa_enabled", "created_at"]
         read_only_fields = ["id", "email", "role", "mfa_enabled", "created_at"]
+
+
+class MfaVerifySerializer(serializers.Serializer):
+    """Body of POST /api/auth/mfa/verify."""
+    mfa_token = serializers.CharField(max_length=500)
+    code = serializers.CharField(max_length=12)          # "123456" or "123 456"

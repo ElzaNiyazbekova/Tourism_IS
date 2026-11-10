@@ -3,6 +3,9 @@ roles, users, guides.   Owner: Elza (tables/constraints), Amina A. (lockout fiel
 Tourists are users with role = "tourist" (ER slide label: "CUSTOMERS / users").
 Integer primary keys; the PK column names (user_id, role_id ...) match db/create_tables.sql.
 """
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.db.models import Q
@@ -81,6 +84,26 @@ class User(AbstractBaseUser):
     @property
     def role_name(self):
         return self.role.name
+
+    def register_failure(self):
+        """
+        One wrong password / wrong MFA code. The 5th failure sets locked_until = now + 15 min and restarts the counter.
+        Returns True when the account is locked now. The caller holds the row lock (select_for_update) and
+        must NOT raise inside the same transaction.atomic block, or this save would be rolled back.
+        """
+        self.failed_login_count += 1
+        if self.failed_login_count >= settings.LOGIN_MAX_FAILURES:
+            self.locked_until = timezone.now() + timedelta(minutes=settings.LOGIN_LOCK_MINUTES)
+            self.failed_login_count = 0
+        self.save(update_fields=["failed_login_count", "locked_until"])
+        return self.is_locked
+
+    def clear_failures(self):
+        """Successful login: forget earlier failures and any expired lock."""
+        if self.failed_login_count or self.locked_until:
+            self.failed_login_count = 0
+            self.locked_until = None
+            self.save(update_fields=["failed_login_count", "locked_until"])
 
 
 class Guide(models.Model):

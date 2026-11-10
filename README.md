@@ -40,8 +40,13 @@ Password for **every** account: `Demo#Tourism2026` (override with `DEMO_PASSWORD
 | analyst | analyst@example.com |
 | admin | admin@example.com |
 
+**Staff accounts (manager, analyst, admin) have two-step login.** After the password the app asks for a 6-digit code.
+The demo setup key is `JBSWY3DPEHPK3PXP` (override with `DEMO_MFA_SECRET` in `.env` before seeding): add it to any authenticator app
+("Enter a setup key"), or print the current code with `python manage.py mfa_setup manager@example.com --show-code`.
+A staff account without MFA cannot log in (403 `mfa_setup_required`); set one up with `python manage.py mfa_setup <email>`.
+
 Reload demo data: `python manage.py seed_demo --reset` (in Docker: `docker compose exec backend python manage.py seed_demo --reset`).
-Staff screens and mandatory MFA arrive in Phase 2; in Phase 1 only the tourist flow is in the UI.
+Staff screens (admin, reports) and mandatory MFA are in Phase 2.
 
 ## 4. First run checklist (Phase 1 acceptance - ~15 minutes)
 | # | Step | Expected |

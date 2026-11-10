@@ -23,6 +23,10 @@ from bookings.models import AuditLog, Booking, Notification, Payment
 from catalog.models import Departure, Destination, PackageTranslation, Review, TourPackage
 
 DEMO_PASSWORD = os.environ.get("DEMO_PASSWORD", "Demo#Tourism2026")   # demo accounts only; documented in README
+# Staff accounts (manager/analyst/admin) have two-step login. Demo secret = add this key to ANY authenticator app
+# (or run `python manage.py mfa_setup manager@example.com --show-code`). Override with DEMO_MFA_SECRET in .env.
+DEMO_MFA_SECRET = os.environ.get("DEMO_MFA_SECRET", "JBSWY3DPEHPK3PXP")
+STAFF_MFA = {"mfa_enabled": True, "mfa_secret": DEMO_MFA_SECRET}
 
 DESTINATIONS = [("Almaty", "Kazakhstan"), ("Astana", "Kazakhstan"), ("Turkistan", "Kazakhstan"),
                 ("Mangystau", "Kazakhstan"), ("Burabay", "Kazakhstan")]
@@ -94,9 +98,9 @@ class Command(BaseCommand):
         now = timezone.now()
 
         # --- users: one per role + 5 tourists + guides ---------------------
-        User.objects.create_user("admin@example.com", DEMO_PASSWORD, "Demo Admin", role=Role.ADMIN)
-        User.objects.create_user("manager@example.com", DEMO_PASSWORD, "Demo Manager", role=Role.MANAGER, phone="+7 700 000 00 01")
-        User.objects.create_user("analyst@example.com", DEMO_PASSWORD, "Demo Analyst", role=Role.ANALYST)
+        User.objects.create_user("admin@example.com", DEMO_PASSWORD, "Demo Admin", role=Role.ADMIN, **STAFF_MFA)
+        User.objects.create_user("manager@example.com", DEMO_PASSWORD, "Demo Manager", role=Role.MANAGER, phone="+7 700 000 00 01", **STAFF_MFA)
+        User.objects.create_user("analyst@example.com", DEMO_PASSWORD, "Demo Analyst", role=Role.ANALYST, **STAFF_MFA)
         tourists = [User.objects.create_user(f"tourist{i + 1}@example.com", DEMO_PASSWORD, name, role=Role.TOURIST,
                                              phone=f"+7 700 100 00 0{i + 1}", preferred_language=["en", "ru", "kk", "ru", "en"][i])
                     for i, name in enumerate(TOURIST_NAMES)]

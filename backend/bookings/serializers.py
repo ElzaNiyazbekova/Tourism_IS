@@ -40,6 +40,11 @@ class PaySerializer(serializers.Serializer):
     result = serializers.ChoiceField(choices=["pay", "fail"])
 
 
+class CheckoutSerializer(BookingCreateSerializer):
+    """Body of POST /api/bookings/checkout: the booking fields + the mock-gateway button."""
+    result = serializers.ChoiceField(choices=["pay", "fail"])
+
+
 class BookingDetailSerializer(BookingSerializer):
     """One booking + its payment attempts (used by the payment screen)."""
     payments = PaymentSerializer(many=True, read_only=True)

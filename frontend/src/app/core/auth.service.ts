@@ -7,6 +7,9 @@ import { LanguageService } from './language.service';
 import { User } from './models';
 
 interface AuthResponse { access: string; refresh: string; user: User; }
+/** Step 1 answer for accounts with two-step login: no tokens yet, only a 5-minute ticket for step 2. */
+export interface MfaChallenge { mfa_required: true; mfa_token: string; }
+export const isMfaChallenge = (r: User | MfaChallenge): r is MfaChallenge => 'mfa_required' in r;
 const ACCESS = 'access_token';
 const REFRESH = 'refresh_token';
 
@@ -27,8 +30,17 @@ export class AuthService {
   get refreshToken(): string | null { return this.read(REFRESH); }
   hasToken(): boolean { return !!this.accessToken || !!this.refreshToken; }
 
-  login(email: string, password: string): Observable<User> {
-    return this.http.post<AuthResponse>('/api/auth/login', { email, password }).pipe(tap(r => this.accept(r)), map(r => r.user));
+  /** Step 1. Returns the user, or an MfaChallenge when the account needs the second step. */
+  login(email: string, password: string): Observable<User | MfaChallenge> {
+    return this.http.post<AuthResponse | MfaChallenge>('/api/auth/login', { email, password }).pipe(
+      tap(r => { if (!('mfa_required' in r)) this.accept(r); }),
+      map(r => ('mfa_required' in r ? r : r.user)),
+    );
+  }
+
+  /** Step 2: the 6-digit code from the authenticator app. */
+  verifyMfa(mfaToken: string, code: string): Observable<User> {
+    return this.http.post<AuthResponse>('/api/auth/mfa/verify', { mfa_token: mfaToken, code }).pipe(tap(r => this.accept(r)), map(r => r.user));
   }
 
   register(body: { email: string; password: string; full_name: string; phone: string; preferred_language: string }): Observable<User> {

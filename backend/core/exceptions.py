@@ -7,6 +7,7 @@ One error format for the whole API (the Angular app translates `message_key`):
 
 Owner: Amina A. (Architecture & Security)
 """
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import APIException, ErrorDetail
 from rest_framework.response import Response
@@ -24,6 +25,21 @@ class ApiError(APIException):
         self.message = message
         self.extra = extra or {}
         self.field_errors = field_errors or {}
+
+
+class AccountLocked(ApiError):
+    """
+    HTTP 423 Locked: the account is blocked after too many wrong passwords (or wrong MFA codes).
+    Rule: LOGIN_MAX_FAILURES (5) failures -> locked for LOGIN_LOCK_MINUTES (15). Until `locked_until`
+    even the CORRECT password is refused with 423 (so an attacker cannot keep guessing).
+    Body: {"code": "account_locked", ..., "locked_until": ISO time, "retry_after_seconds": n}; header Retry-After: n.
+    """
+
+    def __init__(self, locked_until):
+        seconds = max(1, int((locked_until - timezone.now()).total_seconds()))
+        super().__init__("account_locked", "errors.account_locked", "Too many failed attempts. Try again later.",
+                         status.HTTP_423_LOCKED,
+                         extra={"locked_until": locked_until.isoformat(), "retry_after_seconds": seconds})
 
 
 def _flatten(detail, path=""):
@@ -50,6 +66,7 @@ _STATUS_KEYS = {
     403: ("forbidden", "errors.forbidden", "You do not have permission to do this."),
     404: ("not_found", "errors.not_found", "Not found."),
     405: ("method_not_allowed", "errors.method_not_allowed", "Method not allowed."),
+    423: ("account_locked", "errors.account_locked", "Too many failed attempts. Try again later."),
     429: ("throttled", "errors.throttled", "Too many requests."),
 }
 
@@ -67,7 +84,10 @@ def api_exception_handler(exc, context):
             "field_errors": exc.field_errors,
             **exc.extra,
         }
-        return Response(body, status=exc.status_code)
+        response = Response(body, status=exc.status_code)
+        if "retry_after_seconds" in exc.extra:           # standard HTTP hint for 423 / 429 style answers
+            response["Retry-After"] = str(exc.extra["retry_after_seconds"])
+        return response
 
     code, key, message = _STATUS_KEYS.get(response.status_code, ("error", "errors.generic", "Something went wrong."))
     field_errors = _flatten(exc.detail) if response.status_code == 400 else {}

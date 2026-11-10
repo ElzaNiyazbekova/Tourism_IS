@@ -102,7 +102,12 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 LOGIN_MAX_FAILURES = 5          # lockout after 5 wrong passwords ...
-LOGIN_LOCK_MINUTES = 15         # ... for 15 minutes
+LOGIN_LOCK_MINUTES = 15         # ... for 15 minutes (HTTP 423 Locked, see core.exceptions.AccountLocked)
+
+# ---- two-step login (MFA, TOTP code from an authenticator app) --------------
+MFA_ISSUER = "Tourism IS"                          # name shown inside the authenticator app
+MFA_TOKEN_MAX_AGE_SECONDS = 300                    # time allowed between step 1 (password) and step 2 (code)
+MFA_REQUIRED_ROLES = ("manager", "admin", "analyst")   # staff can NOT log in without MFA set up
 
 # ---- REST framework ---------------------------------------------------------
 REST_FRAMEWORK = {

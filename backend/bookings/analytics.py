@@ -17,7 +17,7 @@ from rest_framework.views import APIView
 
 from catalog.models import TourPackage
 from core.lang import pick_translation, request_lang
-from core.permissions import role_required
+from core.permissions import IsAnalystOrStaff
 
 from .models import Booking, Payment
 
@@ -54,7 +54,7 @@ def package_report(lang="en"):
 
 class PackageReportView(APIView):
     """GET /api/analytics/packages?lang=  - analyst, manager and admin only."""
-    permission_classes = [role_required("analyst", "manager", "admin")]
+    permission_classes = [IsAnalystOrStaff]
 
     @extend_schema(responses={200: dict})
     def get(self, request):

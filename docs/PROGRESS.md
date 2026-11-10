@@ -21,3 +21,10 @@
 
 ### Final-defence answers (draft, completed in Phase 5)
 Problem: double-booking of guides/seats. Who: independent tourists + local guides. Demo: see DEMO_SCRIPT (Phase 5). Inside: Django/DRF + PostgreSQL + Angular. Data flow: Angular -> /api (JWT) -> service layer (transaction + row lock) -> PostgreSQL constraints. Different: slot/seat model with DB-level protection and 3 languages incl. Kazakh.
+
+## Week 11 - Amina A. (security + transaction) - checkable
+- 423 account_locked: `accounts.tests.LockoutTests` (6 tests) + curl output in `docs/WEEK11_AMINA_A.md`.
+- MFA two-step login: `accounts.tests.MfaTests` (11 tests); demo staff accounts need the authenticator code.
+- Role table 401/403: `python manage.py permission_matrix` -> "All cells match".
+- Booking transaction + rollback: `python manage.py demo_rollback`; `bookings.tests.CheckoutRollbackTests` (6 tests).
+- Seat locking: `SimultaneousBookingTests` on PostgreSQL (2 tourists / 1 seat -> exactly one booking).

@@ -36,7 +36,8 @@ export interface ApiErrorBody {
   code: string; message_key: string; message: string;
   field_errors: Record<string, FieldError[]>;
   next_available_departure?: NextDeparture | null;
-  locked_until?: string;
+  locked_until?: string;          // 423 account_locked: ISO time when login works again
+  retry_after_seconds?: number;
 }
 
 // ---- Phase 2 ----

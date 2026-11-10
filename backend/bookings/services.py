@@ -4,7 +4,8 @@ Booking service layer.   Owner: Amina A. (transactions/locking) + Aitore (reject
 create_booking is ONE transaction (Task 9 transaction, rule 10):
    lock departure row -> checks -> seats - n -> insert Pending (total_cost frozen) -> audit row.
 If any step raises, everything is rolled back, so no half-finished booking survives.
-Phase 2 adds the payment step and the "Needs review" handling inside this same transaction.
+The payment step joins the same transaction in bookings.payments.book_and_pay (checkout), where a failed payment
+rolls the whole booking back. "Needs review" handling comes in Phase 3.
 """
 from datetime import timedelta
 from decimal import Decimal

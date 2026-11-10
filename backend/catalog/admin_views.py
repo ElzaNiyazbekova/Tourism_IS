@@ -1,7 +1,7 @@
 """
 Staff CRUD (start): tours (+translations) and departures.  /api/admin/...   Owner: Aitore / Amina A. (permissions)
 
-Only manager and admin (server-side `role_required`; the Angular guard is just convenience).
+Only manager and admin (server-side `IsStaffRole`; the Angular guard is just convenience).
 No DELETE on purpose: every foreign key is RESTRICT, so we DEACTIVATE instead (is_active = false).
 Every create / edit / deactivate / activate writes a row to audit_log.
 """
@@ -16,14 +16,14 @@ from bookings.audit import audit
 from bookings.models import Booking
 from core.exceptions import ApiError
 from core.lang import request_lang
-from core.permissions import role_required
+from core.permissions import IsStaffRole
 
 from .admin_serializers import (AdminDepartureSerializer, AdminDestinationSerializer, AdminGuideSerializer,
                                 AdminTourSerializer)
 from .models import Departure, Destination, TourPackage
 from .services import assert_no_guide_overlap, next_available_departure
 
-STAFF = [role_required("manager", "admin")]
+STAFF = [IsStaffRole]
 
 
 def _tour_snapshot(t):

@@ -292,6 +292,98 @@ class SeatLockingTests(TestCase):
         self.assertEqual(dep.seats_available, 1)
 
 
+class LastSeatRaceTests(TransactionTestCase):
+    """Real race for the final seat. This test must run on PostgreSQL because SQLite ignores row locks.
+
+    Use PostgreSQL for the real run:
+        docker compose up -d db
+        docker compose run --rm backend python manage.py test bookings.tests.LastSeatRaceTests -v 2
+    """
+
+    def _race(self, n_users):
+        dep = make_departure(seats=1)
+        users = [make_user("tourist") for _ in range(n_users)]
+        barrier = threading.Barrier(n_users)
+        codes = []
+
+        def worker(user):
+            try:
+                barrier.wait()
+                response = client_for(user).post(
+                    "/api/bookings",
+                    {"departure": dep.pk, "travelers_count": 1},
+                    format="json",
+                )
+                codes.append(response.status_code)
+            finally:
+                connection.close()
+
+        threads = [threading.Thread(target=worker, args=(user,)) for user in users]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        dep.refresh_from_db()
+        return dep, codes
+
+    def test_R1_two_tourists_last_seat(self):
+        from django.db import connection
+        if connection.vendor != "postgresql":
+            self.skipTest("Race test needs PostgreSQL row locking")
+
+        dep, codes = self._race(2)
+        self.assertEqual(sorted(codes), [201, 409])
+        dep.refresh_from_db()
+        self.assertEqual(dep.seats_available, 0)
+        self.assertEqual(Booking.objects.filter(departure=dep).count(), 1)
+
+    def test_R2_five_tourists_last_seat(self):
+        from django.db import connection
+        if connection.vendor != "postgresql":
+            self.skipTest("Race test needs PostgreSQL row locking")
+
+        dep, codes = self._race(5)
+        self.assertEqual(codes.count(201), 1)
+        self.assertEqual(codes.count(409), 4)
+        dep.refresh_from_db()
+        self.assertEqual(dep.seats_available, 0)
+        self.assertEqual(Booking.objects.filter(departure=dep).count(), 1)
+
+    def test_R3_seats_never_negative(self):
+        from django.db import connection
+        if connection.vendor != "postgresql":
+            self.skipTest("Race test needs PostgreSQL row locking")
+
+        dep = make_departure(seats=2)
+        users = [make_user("tourist") for _ in range(3)]
+        barrier = threading.Barrier(3)
+        codes = []
+
+        def worker(user):
+            try:
+                barrier.wait()
+                response = client_for(user).post(
+                    "/api/bookings",
+                    {"departure": dep.pk, "travelers_count": 1},
+                    format="json",
+                )
+                codes.append(response.status_code)
+            finally:
+                connection.close()
+
+        threads = [threading.Thread(target=worker, args=(user,)) for user in users]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        dep.refresh_from_db()
+        self.assertEqual(codes.count(201), 2)
+        self.assertEqual(codes.count(409), 1)
+        self.assertEqual(dep.seats_available, 0)
+        self.assertGreaterEqual(dep.seats_available, 0)
+        self.assertEqual(Booking.objects.filter(departure=dep).count(), 2)
+
+
 @skipUnless(connection.vendor == "postgresql", "row locks (SELECT ... FOR UPDATE) need PostgreSQL; SQLite ignores them")
 class SimultaneousBookingTests(TransactionTestCase):
     """

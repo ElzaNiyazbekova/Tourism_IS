@@ -11,6 +11,7 @@ pay_booking is ONE transaction (Task 9 transaction, rule 10):
   * Fail:    the Failed payment row is saved (visible in payments, for the audit) and the booking stays
     Pending with its seats held until it expires (48 h), so the tourist can try again.
 """
+import logging
 import uuid
 
 from django.db import transaction
@@ -21,6 +22,8 @@ from core.exceptions import ApiError
 from .audit import audit
 from .models import Booking, Payment
 from .services import create_booking
+
+log = logging.getLogger(__name__)
 
 
 def mock_gateway(outcome: str):
@@ -40,13 +43,17 @@ def pay_booking(user, booking_id, outcome):
 
         now = timezone.now()
         if booking.status == Booking.CONFIRMED:
+            log.warning("payment rejected: code=%s user_id=%s booking_id=%s", "already_paid", user.pk, booking.pk)
             raise ApiError("already_paid", "errors.payment.already_paid", "This booking is already paid.", 409)
         if booking.status != Booking.PENDING:
+            log.warning("payment rejected: code=%s user_id=%s booking_id=%s", "booking_not_payable", user.pk, booking.pk)
             raise ApiError("booking_not_payable", "errors.payment.not_payable",
                            "Only a Pending booking can be paid.", 409)
         if booking.expires_at is not None and booking.expires_at <= now:
+            log.warning("payment rejected: code=%s user_id=%s booking_id=%s", "booking_expired", user.pk, booking.pk)
             raise ApiError("booking_expired", "errors.payment.expired", "The payment time (48 hours) has run out.", 409)
         if booking.departure.start_at <= now:
+            log.warning("payment rejected: code=%s user_id=%s booking_id=%s", "departure_in_past", user.pk, booking.pk)
             raise ApiError("departure_in_past", "errors.booking.departure_in_past",
                            "This departure has already started.", 409)
 
@@ -60,9 +67,11 @@ def pay_booking(user, booking_id, outcome):
             booking.status = Booking.CONFIRMED
             booking.expires_at = None                    # nothing left to expire
             booking.save(update_fields=["status", "expires_at"])
+            log.info("payment succeeded: booking_ref=%s transaction_ref=%s", booking.booking_ref, ref)
             audit(user, "status_change", "bookings", booking.pk, old,
                   {"status": booking.status, "payment": payment.transaction_ref})
         else:
+            log.warning("payment failed: booking_ref=%s transaction_ref=%s", booking.booking_ref, ref)
             audit(user, "payment_failed", "payments", payment.pk, None,
                   {"booking": booking.booking_ref, "transaction_ref": ref})
     return booking, payment

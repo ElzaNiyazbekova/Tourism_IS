@@ -2,7 +2,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdminDeparture, AdminGuide, AdminTour, Booking, BookingDetail, Destination, Lang, Page, PackageReport, PayResult, TourDetail, Tour } from './models';
+import { AdminDeparture, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, Lang, Page, PackageReport, PayResult, TourDetail, Tour } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ToursService {
@@ -68,4 +68,15 @@ export class AdminService {
 export class AnalyticsService {
   private http = inject(HttpClient);
   packages(lang: Lang): Observable<PackageReport> { return this.http.get<PackageReport>('/api/analytics/packages', { params: { lang } }); }
+}
+
+@Injectable({ providedIn: 'root' })
+export class AuditService {
+  private http = inject(HttpClient);
+  list(filters: Record<string, string>, page: number): Observable<Page<AuditEntry>> {
+    let params = new HttpParams().set('page', page);
+    for (const [k, v] of Object.entries(filters)) if (v) params = params.set(k, v);
+    return this.http.get<Page<AuditEntry>>('/api/admin/audit-log', { params });
+  }
+  facets(): Observable<AuditFacets> { return this.http.get<AuditFacets>('/api/admin/audit-log/facets'); }
 }

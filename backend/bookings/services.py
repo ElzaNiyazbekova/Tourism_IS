@@ -4,10 +4,8 @@ Booking service layer.   Owner: Amina A. (transactions/locking) + Aitore (reject
 create_booking is ONE transaction (Task 9 transaction, rule 10):
    lock departure row -> checks -> seats - n -> insert Pending (total_cost frozen) -> audit row.
 If any step raises, everything is rolled back, so no half-finished booking survives.
-The payment step joins the same transaction in bookings.payments.book_and_pay (checkout), where a failed payment
-rolls the whole booking back. "Needs review" handling comes in Phase 3.
+Phase 2 adds the payment step and the "Needs review" handling inside this same transaction.
 """
-import logging
 from datetime import timedelta
 from decimal import Decimal
 import uuid
@@ -21,8 +19,6 @@ from catalog.services import next_available_departure
 from core.exceptions import ApiError
 
 from .models import AuditLog, Booking
-
-log = logging.getLogger(__name__)
 
 
 def _rejected(code, key, message, status_code, departure, min_seats=1):
@@ -46,24 +42,14 @@ def create_booking(user, departure_id, travelers_count, special_request=""):
 
             now = timezone.now()
             if dep.start_at <= now:
-                log.warning("booking rejected: code=%s user_id=%s departure_id=%s", "departure_in_past", user.pk, dep.pk)
                 raise _rejected("departure_in_past", "errors.booking.departure_in_past",
                                 "This departure has already started.", 422, dep, travelers_count)
 
             if Booking.objects.filter(user=user, departure=dep, status__in=Booking.ACTIVE).exists():
-                log.warning("booking rejected: code=%s user_id=%s departure_id=%s", "duplicate_booking", user.pk, dep.pk)
                 raise ApiError("duplicate_booking", "errors.booking.duplicate",
                                "You already booked this departure.", 409)
 
             if dep.seats_available < travelers_count:
-                log.warning(
-                    "booking rejected: code=%s user_id=%s departure_id=%s requested=%s available=%s",
-                    "departure_full",
-                    user.pk,
-                    dep.pk,
-                    travelers_count,
-                    dep.seats_available,
-                )
                 raise _rejected("departure_full", "errors.booking.departure_full",
                                 "Not enough free seats on this departure.", 409, dep, travelers_count)
 
@@ -88,11 +74,7 @@ def create_booking(user, departure_id, travelers_count, special_request=""):
                                     new_value={"ref": booking.booking_ref, "status": booking.status,
                                                "departure": dep.pk, "travelers": travelers_count,
                                                "total_cost": str(booking.total_cost)})
-            log.info("booking created: ref=%s user_id=%s departure_id=%s travelers_count=%s",
-                     booking.booking_ref, user.pk, dep.pk, travelers_count)
             return booking
     except IntegrityError:
         # A DB rule caught something the checks above missed (e.g. a race on the partial unique index).
-        log.error("booking integrity error: user_id=%s departure_id=%s travelers_count=%s",
-                  user.pk, departure_id, travelers_count, exc_info=True)
         raise ApiError("duplicate_booking", "errors.booking.duplicate", "You already booked this departure.", 409)

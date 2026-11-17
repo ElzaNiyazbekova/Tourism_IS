@@ -92,12 +92,7 @@
     "login_button": "Log in",
     "register_button": "Sign up",
     "no_account": "No account yet?",
-    "have_account": "Already registered?",
-    "mfa_title": "Two-step verification",
-    "mfa_hint": "Open your authenticator app and enter the 6-digit code.",
-    "mfa_code": "6-digit code",
-    "mfa_button": "Verify",
-    "mfa_back": "Back to password"
+    "have_account": "Already registered?"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -111,12 +106,6 @@
     "throttled": "Too many requests. Wait a moment.",
     "invalid_credentials": "Wrong email or password.",
     "account_locked": "Too many failed attempts. The account is locked for 15 minutes.",
-    "locked_until": "You can try again after {{time}}.",
-    "mfa": {
-      "invalid_code": "Wrong or expired code.",
-      "token_invalid": "The login step expired. Enter your password again.",
-      "setup_required": "Staff accounts need two-step verification. Ask an administrator to set it up."
-    },
     "field": {
       "required": "This field is required.",
       "blank": "This field cannot be empty.",
@@ -144,8 +133,7 @@
     "payment": {
       "already_paid": "This booking is already paid.",
       "not_payable": "This booking cannot be paid.",
-      "expired": "The payment window has expired.",
-      "failed_rolled_back": "The payment failed. Nothing was booked and the seats are free again."
+      "expired": "The payment window has expired."
     }
   },
   "payment": {
@@ -197,6 +185,22 @@
     "active_bookings": "Active bookings",
     "completed": "Completed",
     "cancelled": "Cancelled",
-    "revenue": "Revenue"
+    "revenue": "Revenue",
+    "audit": "Audit log",
+    "audit_note": "Who changed what and when. Read-only: entries cannot be edited or deleted here.",
+    "audit_table": "Table",
+    "audit_action": "Action",
+    "audit_all": "All",
+    "audit_from": "From",
+    "audit_to": "To",
+    "audit_reset": "Reset",
+    "audit_empty": "No entries match these filters.",
+    "audit_when": "When",
+    "audit_who": "Who",
+    "audit_system": "System",
+    "audit_details": "Details",
+    "audit_hide": "Hide",
+    "audit_before": "Before",
+    "audit_after": "After"
   }
 }

@@ -4,6 +4,7 @@ import { Routes } from '@angular/router';
 import { authGuard, roleGuard } from './core/guards';
 
 const staff = roleGuard('manager', 'admin');
+const adminOnly = roleGuard('admin');
 const anyAdmin = roleGuard('manager', 'admin', 'analyst');
 
 export const routes: Routes = [
@@ -25,6 +26,7 @@ export const routes: Routes = [
       { path: 'departures', canActivate: [staff], loadComponent: () => import('./features/admin/admin-departures.component').then(m => m.AdminDeparturesComponent) },
       { path: 'departures/new', canActivate: [staff], loadComponent: () => import('./features/admin/admin-departure-form.component').then(m => m.AdminDepartureFormComponent) },
       { path: 'departures/:id', canActivate: [staff], loadComponent: () => import('./features/admin/admin-departure-form.component').then(m => m.AdminDepartureFormComponent) },
+      { path: 'audit', canActivate: [adminOnly], loadComponent: () => import('./features/admin/admin-audit.component').then(m => m.AdminAuditComponent) },
       { path: 'reports', loadComponent: () => import('./features/admin/admin-reports.component').then(m => m.AdminReportsComponent) },
     ],
   },

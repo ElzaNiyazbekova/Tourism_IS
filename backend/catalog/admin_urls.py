@@ -1,5 +1,7 @@
 from django.urls import path
 
+from bookings.audit_views import AuditLogFacetsView, AuditLogListView
+
 from . import admin_views as v
 
 urlpatterns = [
@@ -13,4 +15,6 @@ urlpatterns = [
     path("departures/<int:pk>/activate", v.DepartureActivate.as_view()),
     path("destinations", v.AdminDestinationList.as_view()),
     path("guides", v.AdminGuideList.as_view()),
+    path("audit-log", AuditLogListView.as_view()),
+    path("audit-log/facets", AuditLogFacetsView.as_view()),
 ]

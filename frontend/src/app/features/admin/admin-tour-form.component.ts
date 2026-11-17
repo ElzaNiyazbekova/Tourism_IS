@@ -115,11 +115,10 @@ export class AdminTourFormComponent {
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
     const v = this.form.getRawValue();
-    const translations = LANGS.flatMap(l => {
-      const row = v[l] as { title?: string | null; description?: string | null } | null;
-      const title = (row?.title ?? '').trim();
-      if (!title) return [];
-      return [{ language_code: l, title, description: row?.description ?? '' }];
+    const translations = LANGS.flatMap((l) => {
+      const entry = v[l];
+      if (!entry || typeof entry.title !== 'string' || !entry.title.trim()) return [];
+      return [{ language_code: l, title: entry.title.trim(), description: entry.description ?? '' }];
     });
     this.saving.set(true); this.error.set(null);
     const body = { destination: v.destination, base_price: String(v.base_price), duration_days: v.duration_days,

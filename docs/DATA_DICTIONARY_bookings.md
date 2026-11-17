@@ -16,3 +16,8 @@
 | expires_at | Deadline to pay | `2026-11-06 18:02+05` | Pending only: created_at + 48 h; then auto-Cancelled and the seat released |
 
 **Extra rules** - one *active* (Pending/Confirmed) booking per tourist per departure (partial UNIQUE index); every status change is written to `audit_log`.
+
+## Phase 2 change: `departures.is_active`
+`departures.is_active BOOLEAN NOT NULL DEFAULT TRUE` lets staff "deactivate" a departure instead of deleting it (RESTRICT keys). An inactive departure
+is hidden from the public pages, cannot be booked, and frees the guide's time: the overlap constraint is
+`EXCLUDE USING gist (guide_id WITH =, tstzrange(start_at, end_at) WITH &&) WHERE (is_active)`.

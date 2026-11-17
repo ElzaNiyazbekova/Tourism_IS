@@ -12,7 +12,7 @@ import { AppDatePipe } from '../../core/pipes';
 const TZ = 'Asia/Almaty';          // fixed UTC+05:00, same zone the pages display
 /** ISO instant -> value for <input type="datetime-local"> in Almaty time */
 const toLocalInput = (iso: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: TZ, dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso)).replace(' ', 'T');
-const fromLocalInput = (v: string | null): string => (v ? `${v}:00+05:00` : '');
+const fromLocalInput = (v: string | null): string | null => v ? `${v}:00+05:00` : null;
 
 @Component({
   selector: 'app-admin-departure-form',
@@ -124,7 +124,6 @@ export class AdminDepartureFormComponent {
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
     const v = this.form.getRawValue();
-    if (!v.start_at || !v.end_at) return;
     this.saving.set(true); this.error.set(null);
     const body = { package: v.package, guide: v.guide, start_at: fromLocalInput(v.start_at), end_at: fromLocalInput(v.end_at), seats_total: v.seats_total };
     this.api.saveDeparture(this.id, body, this.language.lang()).subscribe({

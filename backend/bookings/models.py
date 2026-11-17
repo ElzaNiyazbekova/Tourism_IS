@@ -94,4 +94,6 @@ class AuditLog(models.Model):
 
     class Meta:
         db_table = "audit_log"
-        indexes = [models.Index(fields=["table_name", "record_id"], name="ix_audit_table_record")]
+        indexes = [models.Index(fields=["table_name", "record_id"], name="ix_audit_table_record"),
+                   models.Index(fields=["-created_at"], name="ix_audit_created"),      # newest-first screen
+                   models.Index(fields=["user", "-created_at"], name="ix_audit_user_created")]

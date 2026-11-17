@@ -2,8 +2,9 @@
 Exam project, *Basics of Information Systems (INFT3107)*, KBTU - topic #30 "Plan trips and book excursions".
 Stack: Django 5 + DRF + PostgreSQL 16 (SQLite fallback) - Angular (standalone, signals) - ngx-translate (EN/RU/KZ).
 
-> **Status: Phase 1 (Week 10).** The SQL layer is verified; the Django and Angular code was written without being able to
-> install packages, so **do the "First run" checklist below before anything else** and report failures in `DEFECTS.md`.
+> **Status: Phase 2 (Week 11): mock payment, admin tours/departures, analyst report.** Backend: 47 tests pass on PostgreSQL 16 and on SQLite;
+> `db/verify_constraints.sql` prints `22 PASS, 0 FAIL`. The Angular screens were written without being able to build them here,
+> so **run `npm install && npm start` and report any compile error** (see section 9).
 
 ## 1. Run it (Docker - recommended)
 ```bash
@@ -22,8 +23,8 @@ Stop: `docker compose down` (data kept) - wipe data: `docker compose down -v`.
 ## 2. Run it without Docker (SQLite, no Postgres needed)
 ```bash
 ./scripts/init_env.sh && sed -i 's/^DB_ENGINE=.*/DB_ENGINE=sqlite/' .env
-cd backend && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-python manage.py makemigrations accounts catalog bookings && python manage.py migrate
+cd backend && python3 -m venv .venv && source .venv/bin/activate   # macOS / Linux && pip install -r requirements.txt
+python manage.py migrate
 python manage.py seed_demo && python manage.py runserver          # API on :8000
 cd ../frontend && npm install && npm start                          # app on :4200 (proxies /api to :8000)
 ```
@@ -40,13 +41,8 @@ Password for **every** account: `Demo#Tourism2026` (override with `DEMO_PASSWORD
 | analyst | analyst@example.com |
 | admin | admin@example.com |
 
-**Staff accounts (manager, analyst, admin) have two-step login.** After the password the app asks for a 6-digit code.
-The demo setup key is `JBSWY3DPEHPK3PXP` (override with `DEMO_MFA_SECRET` in `.env` before seeding): add it to any authenticator app
-("Enter a setup key"), or print the current code with `python manage.py mfa_setup manager@example.com --show-code`.
-A staff account without MFA cannot log in (403 `mfa_setup_required`); set one up with `python manage.py mfa_setup <email>`.
-
 Reload demo data: `python manage.py seed_demo --reset` (in Docker: `docker compose exec backend python manage.py seed_demo --reset`).
-Staff screens (admin, reports) and mandatory MFA are in Phase 2.
+Staff screens (`/admin`) are in Phase 2; mandatory MFA is still to come.
 
 ## 4. First run checklist (Phase 1 acceptance - ~15 minutes)
 | # | Step | Expected |
@@ -97,3 +93,18 @@ scripts/       init_env.sh, export_schema.sh                                    
 ## 8. Known deviations (Phase 1)
 Angular is pinned to 20.x (the newest version I could pin without registry access; `ng update` moves it). Chart.js / ng2-charts are added in Phase 3 with the dashboard. Destination names are English only (see Phase 1 summary, assumption 6).
 # Tourism_IS
+
+## 9. Phase 2: what is new and how to check it
+**After pulling Phase 2 run `python manage.py migrate` once** (Docker: `docker compose restart backend`). It adds migrations `accounts/0003`, `catalog/0002`
+(commit them) and applies the PostgreSQL-only objects: the guide-overlap `EXCLUDE` constraint, the full-text index and `analyst_booking_view`.
+In Phase 1 these were never created because the hook that creates them did not fire; this is fixed.
+
+| Check | How | Expected |
+|---|---|---|
+| Payment | log in as `tourist1@example.com`, book a tour, open **Pay now**, press **Simulate failure**, then **Pay** | after failure: still *Pending* + a *Failed* row; after Pay: *Confirmed* + a *Success* row |
+| Admin tour | log in as `manager@example.com` (or admin), `/admin/tours` -> **New tour** (EN title required) | the tour shows up in `/tours`; **Deactivate** hides it |
+| Admin departure | `/admin/departures` -> **New departure**; create a second one for the same guide at an overlapping time | 409 message "guide already has another departure" + next free slot |
+| Analyst | log in as `analyst@example.com` -> `/admin/reports` | counts and revenue per package, no names/contacts; `/admin/tours` is not in the menu and the API answers 403 |
+| Constraints | `psql -d <db> -f db/verify_constraints.sql` (run on an empty migrated database or after `db/create_tables.sql`) | last line `22 PASS, 0 FAIL` |
+
+The Django admin site (`/admin/` of Django) was removed on purpose: the spec forbids the default admin UI and the path belongs to the Angular admin.

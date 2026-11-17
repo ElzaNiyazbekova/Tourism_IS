@@ -16,6 +16,9 @@ import { AuthService } from '../../core/auth.service';
             <a class="list-group-item list-group-item-action" routerLink="/admin/tours" routerLinkActive="active">{{ 'admin.tours' | translate }}</a>
             <a class="list-group-item list-group-item-action" routerLink="/admin/departures" routerLinkActive="active">{{ 'admin.departures' | translate }}</a>
           }
+          @if (isAdmin()) {
+            <a class="list-group-item list-group-item-action" routerLink="/admin/audit" routerLinkActive="active">{{ 'admin.audit' | translate }}</a>
+          }
           <a class="list-group-item list-group-item-action" routerLink="/admin/reports" routerLinkActive="active">{{ 'admin.reports' | translate }}</a>
         </div>
       </aside>
@@ -25,5 +28,6 @@ import { AuthService } from '../../core/auth.service';
 })
 export class AdminLayoutComponent {
   private auth = inject(AuthService);
+  isAdmin = () => this.auth.role() === 'admin';
   staff = () => ['manager', 'admin'].includes(this.auth.role() ?? '');
 }

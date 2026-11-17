@@ -10,8 +10,6 @@ from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-LOGS_DIR = BASE_DIR / "logs"
-os.makedirs(LOGS_DIR, exist_ok=True)
 
 
 def _load_env_file(path: Path) -> None:
@@ -104,12 +102,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 LOGIN_MAX_FAILURES = 5          # lockout after 5 wrong passwords ...
-LOGIN_LOCK_MINUTES = 15         # ... for 15 minutes (HTTP 423 Locked, see core.exceptions.AccountLocked)
-
-# ---- two-step login (MFA, TOTP code from an authenticator app) --------------
-MFA_ISSUER = "Tourism IS"                          # name shown inside the authenticator app
-MFA_TOKEN_MAX_AGE_SECONDS = 300                    # time allowed between step 1 (password) and step 2 (code)
-MFA_REQUIRED_ROLES = ("manager", "admin", "analyst")   # staff can NOT log in without MFA set up
+LOGIN_LOCK_MINUTES = 15         # ... for 15 minutes
 
 # ---- REST framework ---------------------------------------------------------
 REST_FRAMEWORK = {
@@ -166,49 +159,6 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "{asctime} [{levelname}] {name}: {message}",
-            "style": "{",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-        "file": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": str(LOGS_DIR / "app.log"),
-            "maxBytes": 1_000_000,
-            "backupCount": 3,
-            "encoding": "utf-8",
-            "formatter": "verbose",
-        },
-        "error_file": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": str(LOGS_DIR / "errors.log"),
-            "level": "ERROR",
-            "maxBytes": 1_000_000,
-            "backupCount": 3,
-            "encoding": "utf-8",
-            "formatter": "verbose",
-        },
-    },
-    "loggers": {
-        "django.request": {
-            "handlers": ["error_file"],
-            "level": "ERROR",
-            "propagate": True,
-        },
-        "bookings": {
-            "handlers": ["file"],
-            "level": "INFO",
-            "propagate": True,
-        },
-    },
-    "root": {
-        "handlers": ["console", "file"],
-        "level": "INFO",
-    },
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "INFO"},
 }

@@ -22,9 +22,16 @@
 ### Final-defence answers (draft, completed in Phase 5)
 Problem: double-booking of guides/seats. Who: independent tourists + local guides. Demo: see DEMO_SCRIPT (Phase 5). Inside: Django/DRF + PostgreSQL + Angular. Data flow: Angular -> /api (JWT) -> service layer (transaction + row lock) -> PostgreSQL constraints. Different: slot/seat model with DB-level protection and 3 languages incl. Kazakh.
 
-## Week 11 - Amina A. (security + transaction) - checkable
-- 423 account_locked: `accounts.tests.LockoutTests` (6 tests) + curl output in `docs/WEEK11_AMINA_A.md`.
-- MFA two-step login: `accounts.tests.MfaTests` (11 tests); demo staff accounts need the authenticator code.
-- Role table 401/403: `python manage.py permission_matrix` -> "All cells match".
-- Booking transaction + rollback: `python manage.py demo_rollback`; `bookings.tests.CheckoutRollbackTests` (6 tests).
-- Seat locking: `SimultaneousBookingTests` on PostgreSQL (2 tourists / 1 seat -> exactly one booking).
+
+## Week 11 - Phase 2 (mock payment, admin start, analyst view)
+Done: pay endpoint with Pay/Fail + payment screen; admin create/edit/deactivate of tours and departures (EN/RU/KK titles); aggregate-only analyst report;
+constraint script now `22 PASS, 0 FAIL` on PostgreSQL (hand-written schema and Django-built schema); 47 backend tests green on PostgreSQL and SQLite.
+Found and fixed: the PostgreSQL-only constraints were never applied by Django (hook did not fire); a leftover Django admin site was removed.
+Not done (Phase 3+): MFA, search, guide profile, notifications, reviews, cancellation, expiry command, audit-log screen, charts.
+| Member | Task | Checkable result |
+|---|---|---|
+| Elza | run `verify_constraints.sql` on the team database; commit `db/schema.sql` | `22 PASS, 0 FAIL` pasted in the PR |
+| Aitore | click through payment (fail, then pay) and admin tour/departure in the browser | screenshots; rows in `payments` |
+| Amina S. | review RU/KK wording of the new `payment.*` / `admin.*` keys | `npm run check:i18n` passes |
+| Amina A. | check that tourist gets 403 on `/api/admin/*` and `/api/analytics/*`, anonymous gets 401 | curl output in `TESTS.md` |
+| Dastan | compare `/api/analytics/packages` with `SELECT * FROM analyst_booking_view` | same numbers per package |

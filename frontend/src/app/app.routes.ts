@@ -14,6 +14,7 @@ export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./features/auth/login.component').then(m => m.LoginComponent) },
   { path: 'register', loadComponent: () => import('./features/auth/register.component').then(m => m.RegisterComponent) },
   { path: 'my-bookings', canActivate: [authGuard], loadComponent: () => import('./features/bookings/my-bookings.component').then(m => m.MyBookingsComponent) },
+  { path: 'manage-bookings', canActivate: [roleGuard('tourist')], loadComponent: () => import('./features/flexbook/manage-bookings.component').then(m => m.ManageBookingsComponent) },
   { path: 'pay/:id', canActivate: [roleGuard('tourist')], loadComponent: () => import('./features/payment/payment.component').then(m => m.PaymentComponent) },
   {
     path: 'admin', canActivate: [anyAdmin],
@@ -27,6 +28,7 @@ export const routes: Routes = [
       { path: 'departures/new', canActivate: [staff], loadComponent: () => import('./features/admin/admin-departure-form.component').then(m => m.AdminDepartureFormComponent) },
       { path: 'departures/:id', canActivate: [staff], loadComponent: () => import('./features/admin/admin-departure-form.component').then(m => m.AdminDepartureFormComponent) },
       { path: 'audit', canActivate: [adminOnly], loadComponent: () => import('./features/admin/admin-audit.component').then(m => m.AdminAuditComponent) },
+      { path: 'audit-integrity', canActivate: [adminOnly], loadComponent: () => import('./features/admin/admin-audit-integrity.component').then(m => m.AdminAuditIntegrityComponent) },
       { path: 'reports', loadComponent: () => import('./features/admin/admin-reports.component').then(m => m.AdminReportsComponent) },
     ],
   },

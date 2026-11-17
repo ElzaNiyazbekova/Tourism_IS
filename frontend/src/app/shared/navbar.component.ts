@@ -21,6 +21,7 @@ import { Lang } from '../core/models';
             <li class="nav-item"><a class="nav-link" routerLink="/tours" routerLinkActive="active">{{ 'nav.tours' | translate }}</a></li>
             @if (auth.role() === 'tourist') {
               <li class="nav-item"><a class="nav-link" routerLink="/my-bookings" routerLinkActive="active">{{ 'nav.my_bookings' | translate }}</a></li>
+              <li class="nav-item"><a class="nav-link" routerLink="/manage-bookings" routerLinkActive="active">{{ 'nav.manage_bookings' | translate }}</a></li>
             }
             @if (isStaff()) {
               <li class="nav-item"><a class="nav-link" routerLink="/admin" routerLinkActive="active">{{ 'nav.admin' | translate }}</a></li>

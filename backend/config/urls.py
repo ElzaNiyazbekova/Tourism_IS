@@ -14,4 +14,5 @@ urlpatterns = [
     path("api/admin/", include("catalog.admin_urls")),
     path("api/", include("catalog.urls")),
     path("api/", include("bookings.urls")),
+    path("api/", include("flexbook.urls")),                   # FlexBook add-on
 ]

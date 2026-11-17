@@ -18,6 +18,7 @@ import { AuthService } from '../../core/auth.service';
           }
           @if (isAdmin()) {
             <a class="list-group-item list-group-item-action" routerLink="/admin/audit" routerLinkActive="active">{{ 'admin.audit' | translate }}</a>
+            <a class="list-group-item list-group-item-action" routerLink="/admin/audit-integrity" routerLinkActive="active">{{ 'admin.audit_integrity' | translate }}</a>
           }
           <a class="list-group-item list-group-item-action" routerLink="/admin/reports" routerLinkActive="active">{{ 'admin.reports' | translate }}</a>
         </div>

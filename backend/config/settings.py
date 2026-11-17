@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "accounts",
     "catalog",
     "bookings",
+    "flexbook",                     # FlexBook add-on: cancel/undo, seat handover, tamper-evident audit
 ]
 
 MIDDLEWARE = [
@@ -152,6 +153,8 @@ STORAGES = {
 # ---- business rules (kept here so they are easy to explain) -----------------
 PENDING_BOOKING_HOURS = 48      # rule 7: unpaid Pending bookings expire after 48 h
 CANCEL_MIN_DAYS_BEFORE = 3      # tourist may cancel up to 3 days before start
+CANCEL_UNDO_MINUTES = 10        # FlexBook: "I changed my mind" window after cancelling
+HANDOVER_OFFER_HOURS = 24       # FlexBook: how long a seat-handover offer stays open
 
 # Email goes to the console only (no real SMTP).
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

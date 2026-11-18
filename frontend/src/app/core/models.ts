@@ -42,6 +42,9 @@ export interface ApiErrorBody {
 // ---- Phase 2 ----
 export interface Payment { id: number; amount: string; status: 'Success' | 'Failed' | 'Pending'; transaction_ref: string; paid_at: string | null; }
 export interface BookingDetail extends Booking { payments: Payment[]; }
+export interface ReviewBooking extends Booking {
+  departure_id: number; customer_name: string; customer_email: string; payments: Payment[];
+}
 export interface PayResult { result: 'pay' | 'fail'; message_key: string; payment: Payment; booking: Booking; }
 
 export interface Translation { language_code: Lang; title: string; description: string; }

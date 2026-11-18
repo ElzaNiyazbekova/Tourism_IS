@@ -2,7 +2,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdminDeparture, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, Lang, Page, PackageReport, PayResult, TourDetail, Tour } from './models';
+import { AdminDeparture, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, Lang, Page, PackageReport, PayResult, ReviewBooking, TourDetail, Tour } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ToursService {
@@ -62,6 +62,18 @@ export class AdminService {
   }
   destinations(): Observable<Destination[]> { return this.http.get<Destination[]>('/api/admin/destinations'); }
   guides(): Observable<AdminGuide[]> { return this.http.get<AdminGuide[]>('/api/admin/guides'); }
+  reviewBookings(lang: Lang, page = 1): Observable<Page<ReviewBooking>> {
+    return this.http.get<Page<ReviewBooking>>('/api/admin/bookings/review', { params: { lang, page } });
+  }
+  fixReviewBooking(id: number, lang: Lang): Observable<ReviewBooking> {
+    return this.http.post<ReviewBooking>(`/api/admin/bookings/${id}/fix`, {}, { params: { lang } });
+  }
+  mergeReviewBooking(id: number, targetBookingId: number, lang: Lang): Observable<ReviewBooking> {
+    return this.http.post<ReviewBooking>(`/api/admin/bookings/${id}/merge`, { target_booking_id: targetBookingId }, { params: { lang } });
+  }
+  rejectReviewBooking(id: number, lang: Lang): Observable<ReviewBooking> {
+    return this.http.post<ReviewBooking>(`/api/admin/bookings/${id}/reject`, {}, { params: { lang } });
+  }
 }
 
 @Injectable({ providedIn: 'root' })

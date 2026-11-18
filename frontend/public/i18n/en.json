@@ -127,6 +127,12 @@
       "departure_not_found": "This departure does not exist.",
       "not_found": "Booking not found."
     },
+    "review": {
+      "not_in_review": "This booking is no longer waiting for review.",
+      "booking_conflict": "An active booking already exists for this traveller and departure.",
+      "invalid_merge": "Bookings can only be merged for the same traveller and departure.",
+      "merge_capacity": "The merged booking exceeds the departure capacity."
+    },
     "departure": {
       "guide_overlap": "This guide already has another departure at that time.",
       "has_bookings": "This departure has active bookings; tour, guide and time cannot be changed."
@@ -172,6 +178,32 @@
     "title": "Administration",
     "tours": "Tours",
     "departures": "Departures",
+    "bookings_review": "Bookings to review",
+    "review": {
+      "note": "Resolve flagged bookings using payment evidence, combine duplicate entries for the same traveller and departure, or reject and release their seats.",
+      "empty": "There are no bookings waiting for review.",
+      "departure": "Departure",
+      "created": "Created",
+      "request": "Special request",
+      "payments": "Payment attempts",
+      "no_payments": "No payment attempts",
+      "fix": "Fix booking",
+      "fixed_confirmed": "Booking resolved and confirmed from successful payment evidence.",
+      "fixed_pending": "Booking resolved to Pending; a new 48-hour payment window started.",
+      "merge_target": "Merge into booking…",
+      "merge": "Merge",
+      "merged": "Merged into {{ref}}.",
+      "reject": "Reject",
+      "reject_confirm": "Confirm rejection",
+      "rejected": "Booking rejected and held seats released.",
+      "scenario": {
+        "fix_pending": "Demo · Fix → Pending",
+        "fix_confirmed": "Demo · Fix → Confirmed",
+        "merge": "Demo · Merge pair",
+        "reject": "Demo · Reject",
+        "example": "Demo example"
+      }
+    },
     "reports": "Reports",
     "reports_note": "Aggregate numbers only. No customer names or contacts are shown.",
     "new_tour": "New tour",

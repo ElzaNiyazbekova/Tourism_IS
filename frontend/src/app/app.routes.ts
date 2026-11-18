@@ -27,6 +27,7 @@ export const routes: Routes = [
       { path: 'departures', canActivate: [staff], loadComponent: () => import('./features/admin/admin-departures.component').then(m => m.AdminDeparturesComponent) },
       { path: 'departures/new', canActivate: [staff], loadComponent: () => import('./features/admin/admin-departure-form.component').then(m => m.AdminDepartureFormComponent) },
       { path: 'departures/:id', canActivate: [staff], loadComponent: () => import('./features/admin/admin-departure-form.component').then(m => m.AdminDepartureFormComponent) },
+      { path: 'bookings-review', canActivate: [staff], loadComponent: () => import('./features/admin/admin-bookings-review.component').then(m => m.AdminBookingsReviewComponent) },
       { path: 'audit', canActivate: [adminOnly], loadComponent: () => import('./features/admin/admin-audit.component').then(m => m.AdminAuditComponent) },
       { path: 'audit-integrity', canActivate: [adminOnly], loadComponent: () => import('./features/admin/admin-audit-integrity.component').then(m => m.AdminAuditIntegrityComponent) },
       { path: 'reports', loadComponent: () => import('./features/admin/admin-reports.component').then(m => m.AdminReportsComponent) },

@@ -32,6 +32,10 @@ Extra keys are added per error, e.g. `next_available_departure`, `locked_until`.
 | GET, PATCH `/api/admin/departures/{id}` | manager, admin | same, partial | 200 | 409 `departure_has_bookings` (tour/guide/time of a booked departure), 409 `guide_overlap`, 400 `seats_total` below booked |
 | POST `/api/admin/departures/{id}/deactivate` / `activate` | manager, admin | - | 200 | 409 `departure_has_bookings` (deactivate), 409 `guide_overlap` (activate) |
 | GET `/api/admin/destinations`, `/api/admin/guides` | manager, admin | - | plain lists for dropdowns (guides without email/phone) | 401 / 403 |
+| GET `/api/admin/bookings/review` | manager, admin | `lang, page` | page of `Needs review` bookings with customer, departure and payment-attempt details | 401 / 403 |
+| POST `/api/admin/bookings/{id}/fix` | manager, admin | - | resolves to `Confirmed` when a successful payment exists; otherwise `Pending` with a fresh 48-hour deadline | 404, 409 if no longer reviewable or an active duplicate exists |
+| POST `/api/admin/bookings/{id}/merge` | manager, admin | `target_booking_id` | merges same-customer, same-departure review booking into target; combines travelers, frozen costs, requests and payment history | 400 invalid pair, 404, 409 capacity/conflict |
+| POST `/api/admin/bookings/{id}/reject` | manager, admin | - | sets `Cancelled` and releases held seats | 404, 409 if no longer reviewable |
 
 | GET `/api/admin/audit-log` | **admin only** | `table, action, user (id), record (id), date_from, date_to (YYYY-MM-DD), page` | page (12) of `{id, created_at, action, table_name, record_id, user:{id,full_name,role} or null, old_value, new_value}`, newest first. No email / phone. **Read-only** (no POST/PATCH/DELETE). | 400 invalid filter, 401, 403 |
 | GET `/api/admin/audit-log/facets` | admin | - | `{tables:[...], actions:[...]}` for the filter dropdowns | 401 / 403 |
@@ -42,4 +46,4 @@ Every admin change, booking creation and payment result is written to `audit_log
 | Phase | Endpoint |
 |---|---|
 | 2 | POST `/api/auth/mfa/verify` (2nd login step), MFA for staff roles (not done yet), more `/api/admin/*` (users, destinations) |
-| 3 | GET `/api/search?q=&lang=` (tours, destinations, guides), GET `/api/guides/{id}`, POST `/api/bookings/{id}/cancel`, `/api/notifications`, `/api/reviews`, needs-review `fix/merge/reject`, `/api/admin/audit-log`, guide dashboard |
+| 3 | GET `/api/search?q=&lang=` (tours, destinations, guides), GET `/api/guides/{id}`, POST `/api/bookings/{id}/cancel`, `/api/notifications`, `/api/reviews`, `/api/admin/audit-log`, guide dashboard |

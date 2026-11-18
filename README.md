@@ -44,6 +44,8 @@ Password for **every** account: `Demo#Tourism2026` (override with `DEMO_PASSWORD
 Reload demo data: `python manage.py seed_demo --reset` (in Docker: `docker compose exec backend python manage.py seed_demo --reset`).
 Staff screens (`/admin`) are in Phase 2; mandatory MFA is still to come.
 
+**Tour photos:** after `git pull` just run `python manage.py migrate` - it adds the 30 demo photos (3 per tour, free licences from Wikimedia Commons, credits in `backend/catalog/demo_photos/credits.json`) to an existing demo database. Staff upload more in **Admin → Tours → Edit → Photos** (JPEG/PNG/WebP, max 5 MB, max 10 per tour); uploaded files go to `backend/media/` (git-ignored).
+
 To add functional examples to **Admin → Bookings to review** without resetting the database, run from `backend/`:
 `python manage.py seed_review_examples`. It adds cards for both Fix outcomes, a matching Merge pair, and Reject. Sign in as `manager@example.com` or `admin@example.com`, then open `/admin/bookings-review`.
 After processing those cards, add another fresh batch with `python manage.py seed_review_examples --new`. The command checks for a future active departure with at least five free seats and creates separate demo customers for the new batch.

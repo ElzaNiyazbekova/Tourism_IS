@@ -159,3 +159,10 @@ class DemoPhotoTests(TestCase):
                 self.assertEqual(ph.content_type, "image/jpeg")
                 self.assertIn("Wikimedia Commons", ph.credit)
         self.assertTrue((DEMO_PHOTOS / "credits.json").exists())
+
+    def test_P12_migration_titles_match_seed_demo(self):
+        """0004_demo_tour_photos finds tours by frozen English titles - they must stay equal to seed_demo."""
+        import importlib
+        from core.management.commands.seed_demo import PACKAGES
+        mig = importlib.import_module("catalog.migrations.0004_demo_tour_photos")
+        self.assertEqual([mig.DEMO_TITLES[str(i)] for i in range(len(PACKAGES))], [p[6]["en"][0] for p in PACKAGES])

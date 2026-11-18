@@ -1,4 +1,5 @@
 """Public catalogue serializers.   Owner: Aitore (Application & Development)"""
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from accounts.models import Guide
@@ -69,7 +70,7 @@ class TourListSerializer(serializers.ModelSerializer):
                   "accommodation_included", "transport_included", "next_departure_at", "avg_rating", "review_count",
                   "cover_photo"]
 
-    def get_cover_photo(self, obj):
+    def get_cover_photo(self, obj) -> str | None:
         pid = getattr(obj, "cover_photo_id", None)
         return f"/api/photos/{pid}" if pid else None
 
@@ -93,6 +94,7 @@ class TourDetailSerializer(TourListSerializer):
     class Meta(TourListSerializer.Meta):
         fields = TourListSerializer.Meta.fields + ["departures", "reviews", "photos"]
 
+    @extend_schema_field(PublicPhotoSerializer(many=True))
     def get_photos(self, obj):
         return PublicPhotoSerializer(obj.ordered_photos, many=True).data   # set by the view via Prefetch(to_attr=...)
 

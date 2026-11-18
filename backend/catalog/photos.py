@@ -115,7 +115,9 @@ class PhotoFileView(APIView):
 class AdminTourPhotos(APIView):
     permission_classes = STAFF
     parser_classes = [MultiPartParser, FormParser]
+    serializer_class = TourPhotoSerializer
 
+    @extend_schema(responses={200: TourPhotoSerializer(many=True)})
     def get(self, request, pk):
         package = get_object_or_404(TourPackage, pk=pk)
         return Response(TourPhotoSerializer(package.photos.order_by("sort_order", "id"), many=True).data)

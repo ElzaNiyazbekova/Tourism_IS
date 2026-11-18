@@ -1,8 +1,9 @@
 """URL map. Everything lives under /api/ (plus /health for monitors). Owner: Amina A."""
-from django.urls import include, path
+from django.conf import settings
+from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
-from core.views import health
+from core.views import health, spa_index
 
 urlpatterns = [
     path("health", health),                                   # NFR-02 availability probe
@@ -16,3 +17,6 @@ urlpatterns = [
     path("api/", include("bookings.urls")),
     path("api/", include("flexbook.urls")),                   # FlexBook add-on
 ]
+
+if settings.FRONTEND_DIST:      # production: everything that is not the API / docs / static is the Angular app
+    urlpatterns.append(re_path(r"^(?!api/|health$|static/).*$", spa_index))

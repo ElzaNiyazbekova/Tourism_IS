@@ -166,3 +166,23 @@ class DemoPhotoTests(TestCase):
         from core.management.commands.seed_demo import PACKAGES
         mig = importlib.import_module("catalog.migrations.0004_demo_tour_photos")
         self.assertEqual([mig.DEMO_TITLES[str(i)] for i in range(len(PACKAGES))], [p[6]["en"][0] for p in PACKAGES])
+
+
+@override_settings(STORAGES={"default": {"BACKEND": "core.storage.DatabaseStorage"},
+                             "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}})
+class DatabaseStorageTests(TestCase):
+    """MEDIA_STORAGE=db (Render): photos live in stored_files, nothing is written to disk."""
+
+    def test_P13_upload_serve_delete_in_database(self):
+        from core.models import StoredFile
+        pkg = make_package()
+        c = client_for(make_user("manager"))
+        r = c.post(f"/api/admin/tours/{pkg.pk}/photos", {"file": jpeg()}, format="multipart")
+        self.assertEqual(r.status_code, 201, r.content)
+        row = StoredFile.objects.get()
+        self.assertEqual((bytes(row.content), row.size), (JPEG, len(JPEG)))
+        self.assertEqual(TourPhoto.objects.get().file.name, row.name)
+        self.assertEqual(b"".join(client_for().get(r.data["url"]).streaming_content), JPEG)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(c.delete(f"/api/admin/photos/{r.data['id']}").status_code, 204)
+        self.assertFalse(StoredFile.objects.exists())

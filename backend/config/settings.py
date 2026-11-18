@@ -45,6 +45,9 @@ def env_bool(name: str, default: bool = False) -> bool:
 SECRET_KEY = env("DJANGO_SECRET_KEY", secret=True)
 DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,backend").split(",") if h.strip()]
+RENDER_HOST = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")      # set automatically by Render, e.g. tourism-is.onrender.com
+if RENDER_HOST:
+    ALLOWED_HOSTS.append(RENDER_HOST)
 
 INSTALLED_APPS = [
     "django.contrib.auth",          # needed for password hashing/validators; the default admin UI is NOT installed
@@ -80,7 +83,24 @@ AUTH_USER_MODEL = "accounts.User"
 
 # ---- database: PostgreSQL by default, SQLite for the offline demo ----------
 DB_ENGINE = env("DB_ENGINE", "postgres").lower()
-if DB_ENGINE == "sqlite":
+DATABASE_URL = os.environ.get("DATABASE_URL", "")    # hosting (Neon / Render): postgresql://user:pass@host/db?sslmode=require
+if DATABASE_URL:
+    from urllib.parse import parse_qsl, unquote, urlsplit
+    _u = urlsplit(DATABASE_URL)
+    if _u.scheme not in ("postgres", "postgresql"):
+        raise RuntimeError("DATABASE_URL must start with postgresql://")
+    DATABASES = {"default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": unquote(_u.path.lstrip("/")),
+        "USER": unquote(_u.username or ""),
+        "PASSWORD": unquote(_u.password or ""),
+        "HOST": _u.hostname or "",
+        "PORT": str(_u.port or 5432),
+        "OPTIONS": {k: v for k, v in parse_qsl(_u.query) if k in ("sslmode", "options")} or {"sslmode": "require"},
+        "CONN_MAX_AGE": 60,
+        "CONN_HEALTH_CHECKS": True,
+    }}
+elif DB_ENGINE == "sqlite":
     DATABASES = {"default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": env("SQLITE_PATH", str(BASE_DIR / "demo.sqlite3")),
@@ -134,7 +154,16 @@ SPECTACULAR_SETTINGS = {
 
 # ---- CORS / CSRF ------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = [o.strip() for o in env("CORS_ALLOWED_ORIGINS", "http://localhost:4200").split(",") if o.strip()]
+if RENDER_HOST:
+    CORS_ALLOWED_ORIGINS.append(f"https://{RENDER_HOST}")
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+
+# ---- behind the hosting's HTTPS proxy ---------------------------------------
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
 
 # ---- i18n / time ------------------------------------------------------------
 LANGUAGE_CODE = "en"
@@ -145,8 +174,14 @@ USE_TZ = True
 # ---- static files (Angular build is copied here in offline mode) -----------
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Production: the Angular build (index.html + js/css) is served by Django itself, so the whole site is one URL.
+FRONTEND_DIST = os.environ.get("FRONTEND_DIST", "")
+if FRONTEND_DIST:
+    WHITENOISE_ROOT = FRONTEND_DIST          # /main-XXXX.js, /i18n/ru.json ... straight from the build folder
+MEDIA_STORAGE = env("MEDIA_STORAGE", "disk").lower()      # "db" on hosting whose disk is wiped on restart
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "default": {"BACKEND": "core.storage.DatabaseStorage" if MEDIA_STORAGE == "db"
+                else "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
 

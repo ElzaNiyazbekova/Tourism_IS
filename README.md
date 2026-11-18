@@ -20,6 +20,8 @@ docker compose up --build        # db + backend (migrate + seed) + Angular dev s
 The backend container creates the migration files on first start (written into `backend/*/migrations/`) - **commit them** (`git add backend/*/migrations`).
 Stop: `docker compose down` (data kept) - wipe data: `docker compose down -v`.
 
+**Online (Render + Neon, free):** see `docs/DEPLOY.md`.
+
 ## 2. Run it without Docker (SQLite, no Postgres needed)
 ```bash
 ./scripts/init_env.sh && sed -i 's/^DB_ENGINE=.*/DB_ENGINE=sqlite/' .env

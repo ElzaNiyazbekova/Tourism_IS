@@ -14,6 +14,13 @@ export interface Departure {
   id: number; start_at: string; end_at: string; seats_total: number; seats_available: number;
   is_full: boolean; guide: GuideBrief;
 }
+export interface GuideDeparture {
+  id: number; package_id: number; package_title: string; start_at: string; end_at: string;
+  seats_total: number; seats_available: number; is_full: boolean;
+}
+export interface GuideProfile extends GuideBrief {
+  member_since: string; completed_count: number; upcoming_departures: GuideDeparture[];
+}
 export interface Review { id: number; rating: number; comment: string; author: string; created_at: string; }
 export interface Tour {
   id: number; title: string; description: string; destination: Destination;

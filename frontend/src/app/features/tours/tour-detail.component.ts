@@ -56,7 +56,7 @@ import { errorText, toApiError } from '../../core/api-error';
               <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
                   <div class="fw-semibold">{{ d.start_at | appDate: true }}</div>
-                  <div class="small text-muted">{{ 'tours.guide' | translate }}: {{ d.guide.full_name }} · {{ d.guide.languages.join(', ') }}</div>
+                  <div class="small text-muted">{{ 'tours.guide' | translate }}: <a [routerLink]="['/guides', d.guide.id]">{{ d.guide.full_name }}</a> · {{ d.guide.languages.join(', ') }}</div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
                   @if (d.is_full) { <span class="badge text-bg-secondary">{{ 'tours.full' | translate }}</span> }

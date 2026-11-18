@@ -53,6 +53,17 @@
     "reviews": "Reviews",
     "no_reviews": "No reviews yet."
   },
+  "guide": {
+    "about": "About",
+    "no_bio": "The guide has not written about themselves yet.",
+    "upcoming": "Upcoming departures",
+    "tours_led": "Tours led: {{count}}",
+    "member_since": "With us since {{date}}",
+    "not_found": "Guide not found.",
+    "lang_en": "English",
+    "lang_ru": "Russian",
+    "lang_kk": "Kazakh"
+  },
   "booking": {
     "form_title": "Your booking",
     "travelers": "Travelers",

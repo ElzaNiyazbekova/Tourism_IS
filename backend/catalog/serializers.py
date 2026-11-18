@@ -85,3 +85,34 @@ class TourDetailSerializer(TourListSerializer):
 
     def get_reviews(self, obj):
         return ReviewSerializer(obj.recent_reviews, many=True).data   # set by the view via Prefetch(to_attr=...)
+
+
+class GuideDepartureSerializer(serializers.ModelSerializer):
+    """One upcoming departure on the guide's profile, with the tour it belongs to."""
+    package_id = serializers.IntegerField(read_only=True)
+    package_title = serializers.SerializerMethodField()
+    is_full = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Departure
+        fields = ["id", "package_id", "package_title", "start_at", "end_at", "seats_total", "seats_available", "is_full"]
+
+    def get_package_title(self, obj):
+        t = pick_translation(obj.package.translations.all(), self.context.get("lang", "en"))
+        return t.title if t else f"#{obj.package_id}"
+
+    def get_is_full(self, obj):
+        return obj.seats_available <= 0
+
+
+class GuideProfileSerializer(GuideBriefSerializer):
+    """Public guide profile (Phase 3). Needs annotation completed_count + attr upcoming_departures from the view."""
+    completed_count = serializers.IntegerField(read_only=True)
+    member_since = serializers.DateTimeField(source="user.created_at", read_only=True)
+    upcoming_departures = serializers.SerializerMethodField()
+
+    class Meta(GuideBriefSerializer.Meta):
+        fields = GuideBriefSerializer.Meta.fields + ["member_since", "completed_count", "upcoming_departures"]
+
+    def get_upcoming_departures(self, obj):
+        return GuideDepartureSerializer(obj.upcoming_departures, many=True, context=self.context).data

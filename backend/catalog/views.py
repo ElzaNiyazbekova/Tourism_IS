@@ -4,10 +4,11 @@ Public catalogue endpoints (no login needed).   Owner: Aitore (Application & Dev
 GET /api/destinations
 GET /api/tours?destination=&price_min=&price_max=&date_from=&date_to=&guide_lang=&ordering=&lang=
 GET /api/tours/<id>?lang=
+GET /api/guides/<id>?lang=          public guide profile (no email/phone)
 """
 from datetime import datetime, timedelta
 
-from django.db.models import Avg, Count, Exists, F, FloatField, IntegerField, OuterRef, Prefetch, Subquery, Value
+from django.db.models import Avg, Count, Q, Exists, F, FloatField, IntegerField, OuterRef, Prefetch, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -17,8 +18,10 @@ from rest_framework.permissions import AllowAny
 from core.exceptions import ApiError
 from core.lang import request_lang
 
+from accounts.models import Guide
+
 from .models import Departure, Destination, Review, TourPackage
-from .serializers import DestinationSerializer, TourDetailSerializer, TourListSerializer
+from .serializers import DestinationSerializer, GuideProfileSerializer, TourDetailSerializer, TourListSerializer
 
 ORDERINGS = {          # whitelist: never pass user input straight to order_by()
     "price": ("base_price",), "-price": ("-base_price",),
@@ -137,3 +140,31 @@ class TourDetailView(generics.RetrieveAPIView):
             Prefetch("departures", queryset=upcoming, to_attr="upcoming_departures"),
             Prefetch("reviews", queryset=reviews, to_attr="recent_reviews"),
         )
+
+
+class GuideProfileView(generics.RetrieveAPIView):
+    """Public profile of an active guide: bio, languages, how many tours led, next open departures."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    serializer_class = GuideProfileSerializer
+    UPCOMING_LIMIT = 10
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "lang": request_lang(self.request)}
+
+    @extend_schema(parameters=[OpenApiParameter("lang", str, description="en|ru|kk: language of tour titles")])
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        now = timezone.now()
+        return Guide.objects.filter(is_active=True).select_related("user").annotate(
+            completed_count=Count("departures", filter=Q(departures__is_active=True, departures__end_at__lte=now)))
+
+    def get_object(self):
+        guide = super().get_object()
+        guide.upcoming_departures = list(
+            Departure.objects.filter(guide=guide, is_active=True, package__is_active=True, start_at__gt=timezone.now())
+            .select_related("package").prefetch_related("package__translations")
+            .order_by("start_at")[: self.UPCOMING_LIMIT])
+        return guide

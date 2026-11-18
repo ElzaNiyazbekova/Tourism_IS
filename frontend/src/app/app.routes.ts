@@ -11,6 +11,7 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'tours' },
   { path: 'tours', loadComponent: () => import('./features/tours/tour-list.component').then(m => m.TourListComponent) },
   { path: 'tours/:id', loadComponent: () => import('./features/tours/tour-detail.component').then(m => m.TourDetailComponent) },
+  { path: 'guides/:id', loadComponent: () => import('./features/guides/guide-profile.component').then(m => m.GuideProfileComponent) },
   { path: 'login', loadComponent: () => import('./features/auth/login.component').then(m => m.LoginComponent) },
   { path: 'register', loadComponent: () => import('./features/auth/register.component').then(m => m.RegisterComponent) },
   { path: 'my-bookings', canActivate: [authGuard], loadComponent: () => import('./features/bookings/my-bookings.component').then(m => m.MyBookingsComponent) },

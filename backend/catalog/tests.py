@@ -204,3 +204,43 @@ class OverlapServiceTests(TestCase):
         self.assertEqual(ctx.exception.api_code, "guide_overlap")
         assert_no_guide_overlap(guide.pk, dep.end_at, dep.end_at + timedelta(hours=2))        # no error
         assert_no_guide_overlap(make_guide().pk, dep.start_at, dep.end_at)                    # another guide: fine
+
+
+class GuideProfileTests(TestCase):
+    """Public guide profile: GET /api/guides/<id>  (Phase 3)."""
+
+    def setUp(self):
+        self.guide = make_guide(languages="en,kk", full_name="Aidos Guide")
+        self.guide.bio = "Mountain guide"
+        self.guide.save()
+        self.pkg = make_package(title="Big Almaty Lake")
+
+    def test_G1_profile_is_public_and_has_no_contact_data(self):
+        r = client_for().get(f"/api/guides/{self.guide.pk}")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.data["full_name"], "Aidos Guide")
+        self.assertEqual(r.data["bio"], "Mountain guide")
+        self.assertEqual(r.data["languages"], ["en", "kk"])
+        text = r.content.decode().lower()
+        for secret in ("@example.com", "+7 700", "email", "phone"):
+            self.assertNotIn(secret, text)
+
+    def test_G2_upcoming_only_future_active_sorted(self):
+        later = make_departure(package=self.pkg, guide=self.guide, start_in_days=20)
+        sooner = make_departure(package=self.pkg, guide=self.guide, start_in_days=5)
+        make_departure(package=self.pkg, guide=self.guide, start_in_days=30, active=False)       # inactive: hidden
+        make_departure(package=make_package(active=False), guide=self.guide, start_in_days=40)   # inactive tour: hidden
+        past = make_departure(package=self.pkg, guide=self.guide, start_in_days=-3)              # finished: counted
+        make_departure(package=self.pkg, start_in_days=7)                                         # other guide: hidden
+        r = client_for().get(f"/api/guides/{self.guide.pk}")
+        self.assertEqual([d["id"] for d in r.data["upcoming_departures"]], [sooner.pk, later.pk])
+        self.assertEqual(r.data["upcoming_departures"][0]["package_title"], "Big Almaty Lake")
+        self.assertEqual(r.data["upcoming_departures"][0]["package_id"], self.pkg.pk)
+        self.assertEqual(r.data["completed_count"], 1)
+        self.assertNotIn(past.pk, [d["id"] for d in r.data["upcoming_departures"]])
+
+    def test_G3_inactive_or_unknown_guide_is_404(self):
+        self.guide.is_active = False
+        self.guide.save()
+        self.assertEqual(client_for().get(f"/api/guides/{self.guide.pk}").status_code, 404)
+        self.assertEqual(client_for().get("/api/guides/999999").status_code, 404)

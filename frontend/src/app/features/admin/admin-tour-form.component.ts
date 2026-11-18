@@ -7,12 +7,13 @@ import { AdminService } from '../../core/api.services';
 import { ApiErrorBody, AdminTour, Destination, Lang } from '../../core/models';
 import { errorText, fieldErrorText, toApiError } from '../../core/api-error';
 import { LanguageService } from '../../core/language.service';
+import { AdminTourPhotosComponent } from './admin-tour-photos.component';
 
 const LANGS: Lang[] = ['en', 'ru', 'kk'];
 
 @Component({
   selector: 'app-admin-tour-form',
-  imports: [ReactiveFormsModule, RouterLink, TranslatePipe],
+  imports: [ReactiveFormsModule, RouterLink, TranslatePipe, AdminTourPhotosComponent],
   template: `
     <h1 class="h4 mb-3">{{ (id ? 'admin.edit_tour' : 'admin.new_tour') | translate }}</h1>
     @if (loading()) {
@@ -62,6 +63,11 @@ const LANGS: Lang[] = ['en', 'ru', 'kk'];
           <a class="btn btn-outline-secondary" routerLink="/admin/tours">{{ 'common.cancel' | translate }}</a>
         </div>
       </form>
+      @if (id) {
+        <app-admin-tour-photos [tourId]="id" />
+      } @else {
+        <p class="small text-muted mt-3">{{ 'admin.photos_save_first' | translate }}</p>
+      }
     }
   `,
 })

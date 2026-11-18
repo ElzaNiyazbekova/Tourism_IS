@@ -4,7 +4,7 @@ from rest_framework import serializers
 from accounts.models import Guide
 from core.lang import pick_translation
 
-from .models import Departure, Destination, Review, TourPackage
+from .models import Departure, Destination, Review, TourPackage, TourPhoto
 
 
 class DestinationSerializer(serializers.ModelSerializer):
@@ -45,19 +45,33 @@ class ReviewSerializer(serializers.ModelSerializer):
         return obj.user.full_name.split(" ")[0]    # first name only
 
 
+class PublicPhotoSerializer(serializers.ModelSerializer):
+    url = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = TourPhoto
+        fields = ["id", "url", "caption", "credit"]
+
+
 class TourListSerializer(serializers.ModelSerializer):
-    """Card in the catalogue. Needs annotations next_departure_at / avg_rating / review_count from the view."""
+    """Card in the catalogue. Needs annotations next_departure_at / avg_rating / review_count / cover_photo_id from the view."""
     title = serializers.SerializerMethodField()
     description = serializers.SerializerMethodField()
     destination = DestinationSerializer(read_only=True)
     next_departure_at = serializers.DateTimeField(read_only=True)
     avg_rating = serializers.FloatField(read_only=True)
     review_count = serializers.IntegerField(read_only=True)
+    cover_photo = serializers.SerializerMethodField()
 
     class Meta:
         model = TourPackage
         fields = ["id", "title", "description", "destination", "base_price", "duration_days",
-                  "accommodation_included", "transport_included", "next_departure_at", "avg_rating", "review_count"]
+                  "accommodation_included", "transport_included", "next_departure_at", "avg_rating", "review_count",
+                  "cover_photo"]
+
+    def get_cover_photo(self, obj):
+        pid = getattr(obj, "cover_photo_id", None)
+        return f"/api/photos/{pid}" if pid else None
 
     def _tr(self, obj):
         return pick_translation(obj.translations.all(), self.context.get("lang", "en"))
@@ -74,9 +88,13 @@ class TourListSerializer(serializers.ModelSerializer):
 class TourDetailSerializer(TourListSerializer):
     departures = serializers.SerializerMethodField()
     reviews = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
 
     class Meta(TourListSerializer.Meta):
-        fields = TourListSerializer.Meta.fields + ["departures", "reviews"]
+        fields = TourListSerializer.Meta.fields + ["departures", "reviews", "photos"]
+
+    def get_photos(self, obj):
+        return PublicPhotoSerializer(obj.ordered_photos, many=True).data   # set by the view via Prefetch(to_attr=...)
 
     def get_departures(self, obj):
         """Future departures with the guide and seats left (FR-02)."""

@@ -27,8 +27,11 @@ export interface Tour {
   base_price: string;                      // DECIMAL arrives as a string, e.g. "15000.00"
   duration_days: number; accommodation_included: boolean; transport_included: boolean;
   next_departure_at: string | null; avg_rating: number | null; review_count: number;
+  cover_photo: string | null;               // /api/photos/<id> or null
 }
-export interface TourDetail extends Tour { departures: Departure[]; reviews: Review[]; }
+export interface TourPhoto { id: number; url: string; caption: string; credit: string; }
+export interface AdminPhoto extends TourPhoto { sort_order: number; }
+export interface TourDetail extends Tour { departures: Departure[]; reviews: Review[]; photos: TourPhoto[]; }
 
 export interface Booking {
   id: number; booking_ref: string; package_id: number; package_title: string; start_at: string; guide_name: string;

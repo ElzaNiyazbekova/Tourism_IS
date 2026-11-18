@@ -51,7 +51,10 @@
     "book": "Book",
     "login_to_book": "Log in to book",
     "reviews": "Reviews",
-    "no_reviews": "No reviews yet."
+    "no_reviews": "No reviews yet.",
+    "photo_prev": "Previous photo",
+    "photo_next": "Next photo",
+    "photo_n": "Photo {{n}}"
   },
   "guide": {
     "about": "About",
@@ -167,6 +170,13 @@
       "already_paid": "This booking is already paid.",
       "not_payable": "This booking cannot be paid.",
       "expired": "The payment window has expired."
+    },
+    "photo": {
+      "required": "Choose a photo to upload.",
+      "bad_type": "Only JPEG, PNG or WebP photos can be uploaded.",
+      "too_large": "The photo is larger than 5 MB.",
+      "too_many": "A tour can have at most 10 photos.",
+      "bad_order": "The photo list changed. Reload the page and try again."
     }
   },
   "payment": {
@@ -261,7 +271,19 @@
     "audit_details": "Details",
     "audit_hide": "Hide",
     "audit_before": "Before",
-    "audit_after": "After"
+    "audit_after": "After",
+    "photos": "Photos",
+    "photos_hint": "JPEG, PNG or WebP, up to 5 MB each. The first photo is the cover in the tour list.",
+    "photo_upload": "Upload photos",
+    "no_photos": "No photos yet.",
+    "photo_cover": "Cover",
+    "photo_make_cover": "Make cover",
+    "photo_caption": "Caption",
+    "photo_left": "Move left",
+    "photo_right": "Move right",
+    "photo_delete": "Delete photo",
+    "photo_delete_yes": "Delete?",
+    "photos_save_first": "Save the tour first, then you can add photos."
   },
   "flex": {
     "title": "Manage my trips",

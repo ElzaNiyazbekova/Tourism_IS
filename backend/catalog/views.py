@@ -20,7 +20,7 @@ from core.lang import request_lang
 
 from accounts.models import Guide
 
-from .models import Departure, Destination, Review, TourPackage
+from .models import Departure, Destination, Review, TourPackage, TourPhoto
 from .serializers import DestinationSerializer, GuideProfileSerializer, TourDetailSerializer, TourListSerializer
 
 ORDERINGS = {          # whitelist: never pass user input straight to order_by()
@@ -61,6 +61,7 @@ def base_tour_queryset():
     next_open = (Departure.objects.filter(package=OuterRef("pk"), is_active=True, start_at__gt=timezone.now(), seats_available__gt=0)
                  .order_by("start_at").values("start_at")[:1])
     rating = Review.objects.filter(package=OuterRef("pk")).values("package").annotate(a=Avg("rating"), c=Count("pk"))
+    cover = TourPhoto.objects.filter(package=OuterRef("pk")).order_by("sort_order", "id").values("id")[:1]
     return (
         TourPackage.objects.filter(is_active=True)
         .select_related("destination")
@@ -69,6 +70,7 @@ def base_tour_queryset():
             next_departure_at=Subquery(next_open),
             avg_rating=Subquery(rating.values("a")[:1], output_field=FloatField()),
             review_count=Coalesce(Subquery(rating.values("c")[:1], output_field=IntegerField()), Value(0)),
+            cover_photo_id=Subquery(cover),
         )
     )
 
@@ -139,6 +141,7 @@ class TourDetailView(generics.RetrieveAPIView):
         return base_tour_queryset().prefetch_related(
             Prefetch("departures", queryset=upcoming, to_attr="upcoming_departures"),
             Prefetch("reviews", queryset=reviews, to_attr="recent_reviews"),
+            Prefetch("photos", queryset=TourPhoto.objects.order_by("sort_order", "id"), to_attr="ordered_photos"),
         )
 
 

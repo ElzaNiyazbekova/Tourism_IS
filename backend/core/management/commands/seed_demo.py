@@ -2,17 +2,19 @@
 python manage.py seed_demo [--reset]
 
 Fictional demo data (all emails @example.com): 5 destinations, 10 packages with EN/RU/KZ texts,
-6 guides, 30 non-overlapping departures, one user per role + 5 tourists, ~50 bookings in every
+3 real photos per package (free licences, see catalog/demo_photos/credits.json), 6 guides, 30 non-overlapping departures, one user per role + 5 tourists, ~50 bookings in every
 status with payments and reviews (the 50-booking test for the Task 9 analytics query).
 The 5 deliberately bad records are NOT here - they come from `seed_bad_records` (Phase 4).
 
 Owner: Elza (Data & Database)
 """
+import json
 import os
 import random
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -20,7 +22,8 @@ from django.utils import timezone
 
 from accounts.models import Guide, Role, User
 from bookings.models import AuditLog, Booking, Notification, Payment
-from catalog.models import Departure, Destination, PackageTranslation, Review, TourPackage
+from catalog.models import Departure, Destination, PackageTranslation, Review, TourPackage, TourPhoto
+from catalog.photos import add_photo
 
 DEMO_PASSWORD = os.environ.get("DEMO_PASSWORD", "Demo#Tourism2026")   # demo accounts only; documented in README
 
@@ -71,6 +74,25 @@ PACKAGES = [
         "kk": ("Бурабайдағы таң", "Көлдер үстіндегі көрініс алаңына ерте таңғы жорық, шыңда шай ішу.")}),
 ]
 
+DEMO_PHOTOS = Path(__file__).resolve().parents[3] / "catalog" / "demo_photos"   # tourNN_K.jpg + credits.json
+
+
+def load_demo_photos(packages):
+    """Attach the bundled photos to the demo packages (index i -> credits["i"]). Returns how many were added."""
+    credits_file = DEMO_PHOTOS / "credits.json"
+    if not credits_file.exists():
+        return 0
+    added = 0
+    for idx, items in json.loads(credits_file.read_text(encoding="utf-8")).items():
+        if int(idx) >= len(packages) or packages[int(idx)] is None:
+            continue
+        for item in items:
+            credit = f"Photo: {item['author']} / {item['license']} / Wikimedia Commons"
+            add_photo(packages[int(idx)], (DEMO_PHOTOS / item["file"]).read_bytes(), credit=credit)
+            added += 1
+    return added
+
+
 GUIDE_NAMES = [("Aigerim Seitkali", "en,ru,kk"), ("Marat Omarov", "ru,kk"), ("Daniyar Nurlan", "en,ru"),
                ("Saule Akhmetova", "en,kk"), ("Bolat Zhaksylyk", "ru,kk,en"), ("Madina Kenzhebay", "en,ru,kk")]
 TOURIST_NAMES = ["Anna Petrova", "John Smith", "Aliya Nurgali", "Timur Bekov", "Elena Ivanova"]
@@ -116,6 +138,7 @@ class Command(BaseCommand):
             for lang, (title, desc) in texts.items():
                 PackageTranslation.objects.create(package=p, language_code=lang, title=title, description=desc)
             packages.append(p)
+        photo_count = load_demo_photos(packages)
 
         # --- departures: 30 slots, no guide overlap -------------------------
         # Guide g gets slots every 10 days (tours last <= 3 days), so slots can never overlap.
@@ -175,11 +198,13 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"Seeded {len(dests)} destinations, {len(packages)} packages, {len(guides)} guides, "
             f"{len(departures)} departures, {len(made)} bookings {by_status}, "
-            f"{Payment.objects.count()} payments, {Review.objects.count()} reviews."))
+            f"{Payment.objects.count()} payments, {Review.objects.count()} reviews, {photo_count} tour photos."))
         self.stdout.write(f"Demo password for every demo account: {DEMO_PASSWORD}")
 
     def _wipe(self):
         """Delete in dependency order (all FKs are RESTRICT, so order matters)."""
-        for model in (Review, Notification, Payment, AuditLog, Booking, PackageTranslation, Departure, TourPackage,
+        for photo in TourPhoto.objects.all():
+            photo.file.delete(save=False)       # remove the image files too, not only the rows
+        for model in (Review, Notification, Payment, AuditLog, Booking, PackageTranslation, TourPhoto, Departure, TourPackage,
                       Destination, Guide, User):
             model.objects.all().delete()

@@ -38,6 +38,33 @@ import { errorText, toApiError } from '../../core/api-error';
         </div>
       </div>
 
+      @if (t.photos.length) {
+        @let ph = t.photos[photoIdx() < t.photos.length ? photoIdx() : 0];
+        <figure class="mb-4" style="max-width: 900px">
+          <div class="position-relative">
+            <img class="gallery-main" [src]="ph.url" [alt]="ph.caption || t.title">
+            @if (t.photos.length > 1) {
+              <button type="button" class="gallery-nav start-0 ms-2" (click)="step(t.photos.length, -1)" [attr.aria-label]="'tours.photo_prev' | translate">‹</button>
+              <button type="button" class="gallery-nav end-0 me-2" (click)="step(t.photos.length, 1)" [attr.aria-label]="'tours.photo_next' | translate">›</button>
+            }
+          </div>
+          <figcaption class="small text-muted mt-1">
+            @if (ph.caption) { <span class="me-2">{{ ph.caption }}</span> }
+            @if (ph.credit) { <span class="fst-italic">{{ ph.credit }}</span> }
+          </figcaption>
+          @if (t.photos.length > 1) {
+            <div class="d-flex gap-2 mt-2 flex-wrap">
+              @for (p of t.photos; track p.id; let i = $index) {
+                <button type="button" class="gallery-thumb" [class.active]="p.id === ph.id" (click)="photoIdx.set(i)"
+                        [attr.aria-label]="('tours.photo_n' | translate: { n: i + 1 })">
+                  <img [src]="p.url" alt="" class="w-100 h-100" style="object-fit: cover; border-radius: .25rem" loading="lazy">
+                </button>
+              }
+            </div>
+          }
+        </figure>
+      }
+
       @if (booked(); as b) {
         <div class="alert alert-success" role="status">
           {{ 'booking.success' | translate: { ref: b.booking_ref } }}
@@ -144,6 +171,7 @@ export class TourDetailComponent {
   submitting = signal(false);
   error = signal<ApiErrorBody | null>(null);
   booked = signal<Booking | null>(null);
+  photoIdx = signal(0);
 
   form = this.fb.nonNullable.group({
     travelers_count: [1, [Validators.required, Validators.min(1), Validators.max(50)]],
@@ -161,7 +189,7 @@ export class TourDetailComponent {
     this.loading.set(!this.tour());          // keep showing the old data while reloading after a language switch
     this.failed.set(false);
     this.toursApi.detail(Number(this.id()), this.language.lang()).subscribe({
-      next: t => { this.tour.set(t); this.loading.set(false); },
+      next: t => { if (this.tour()?.id !== t.id) this.photoIdx.set(0); this.tour.set(t); this.loading.set(false); },
       error: () => { this.failed.set(true); this.loading.set(false); },
     });
   }
@@ -187,5 +215,6 @@ export class TourDetailComponent {
   }
 
   errMsg(e: ApiErrorBody): string { return errorText(this.translate, e.message_key, e.message); }
+  step(count: number, dir: number): void { this.photoIdx.update(i => (i + dir + count) % count); }
   stars(n: number): string { return '★'.repeat(n) + '☆'.repeat(5 - n); }
 }

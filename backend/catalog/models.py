@@ -1,5 +1,5 @@
 """
-destinations, tour_packages, package_translations, departures, reviews.
+destinations, tour_packages, package_translations, departures, reviews, tour_photos.
 Owner: Elza (Data & Database)
 
 Departure = one package + one guide at a fixed start_at/end_at with seats_total
@@ -102,3 +102,32 @@ class Review(models.Model):
             models.CheckConstraint(condition=Q(rating__gte=1) & Q(rating__lte=5), name="ck_reviews_rating"),
             models.UniqueConstraint(fields=["user", "package"], name="uq_reviews_user_package"),
         ]
+
+
+class TourPhoto(models.Model):
+    """A photo of a tour package. The file lives in MEDIA_ROOT/tour_photos/, the row keeps order + credit.
+    sort_order 0 is the cover shown in the catalogue. Served by GET /api/photos/<id> (no /media URL needed)."""
+    id = models.AutoField(primary_key=True, db_column="photo_id")
+    package = models.ForeignKey(TourPackage, on_delete=models.PROTECT, related_name="photos")
+    file = models.FileField(upload_to="tour_photos/", max_length=200)
+    content_type = models.CharField(max_length=20)
+    caption = models.CharField(max_length=200, blank=True, default="")
+    credit = models.CharField(max_length=300, blank=True, default="")   # author + licence (required for CC photos)
+    sort_order = models.SmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "tour_photos"
+        indexes = [models.Index(fields=["package", "sort_order"], name="ix_tour_photos_package")]
+        constraints = [
+            models.CheckConstraint(condition=Q(sort_order__gte=0), name="ck_tour_photos_order"),
+            models.CheckConstraint(condition=Q(content_type__in=["image/jpeg", "image/png", "image/webp"]),
+                                   name="ck_tour_photos_type"),
+        ]
+
+    def __str__(self):
+        return f"photo #{self.pk} of package #{self.package_id}"
+
+    @property
+    def url(self):
+        return f"/api/photos/{self.pk}"

@@ -150,6 +150,12 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
 
+# ---- uploaded files (tour photos) ------------------------------------------
+# Never served as /media/ - photos go out through GET /api/photos/<id>, so the dev proxy and Docker need nothing extra.
+MEDIA_ROOT = env("MEDIA_ROOT", str(BASE_DIR / "media"))
+TOUR_PHOTO_MAX_BYTES = 5 * 1024 * 1024     # 5 MB per photo
+TOUR_PHOTO_MAX_PER_TOUR = 10
+
 # ---- business rules (kept here so they are easy to explain) -----------------
 PENDING_BOOKING_HOURS = 48      # rule 7: unpaid Pending bookings expire after 48 h
 CANCEL_MIN_DAYS_BEFORE = 3      # tourist may cancel up to 3 days before start

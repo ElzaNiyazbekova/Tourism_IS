@@ -2,3 +2,14 @@ body { background: #f6f7f9; }
 .card-hover { transition: box-shadow .15s; }
 .card-hover:hover { box-shadow: 0 .4rem 1rem rgba(0,0,0,.12); }
 a { text-decoration: none; }
+
+/* tour photos */
+.tour-cover { height: 190px; width: 100%; object-fit: cover; background: #e9ecef; }
+.tour-cover-empty { display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #adb5bd; }
+.gallery-main { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: .5rem; background: #e9ecef; display: block; }
+.gallery-thumb { width: 96px; height: 64px; object-fit: cover; border-radius: .35rem; border: 2px solid transparent; padding: 0; cursor: pointer; opacity: .75; }
+.gallery-thumb:hover, .gallery-thumb.active { opacity: 1; border-color: var(--bs-primary); }
+.gallery-nav { position: absolute; top: 50%; transform: translateY(-50%); border: 0; border-radius: 50%; width: 40px; height: 40px;
+               background: rgba(0,0,0,.45); color: #fff; font-size: 1.4rem; line-height: 1; }
+.gallery-nav:hover { background: rgba(0,0,0,.65); }
+.admin-photo { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: .35rem .35rem 0 0; display: block; }

@@ -2,7 +2,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdminDeparture, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, GuideProfile, Lang, Page, PackageReport, PayResult, ReviewBooking, TourDetail, Tour } from './models';
+import { AdminDeparture, AdminPhoto, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, GuideProfile, Lang, Page, PackageReport, PayResult, ReviewBooking, TourDetail, Tour } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ToursService {
@@ -65,6 +65,20 @@ export class AdminService {
     return this.http.post<AdminDeparture>(`/api/admin/departures/${id}/${active ? 'activate' : 'deactivate'}`, {});
   }
   destinations(): Observable<Destination[]> { return this.http.get<Destination[]>('/api/admin/destinations'); }
+  photos(tourId: number): Observable<AdminPhoto[]> { return this.http.get<AdminPhoto[]>(`/api/admin/tours/${tourId}/photos`); }
+  uploadPhoto(tourId: number, file: File, caption = ''): Observable<AdminPhoto> {
+    const body = new FormData();
+    body.append('file', file);
+    body.append('caption', caption);
+    return this.http.post<AdminPhoto>(`/api/admin/tours/${tourId}/photos`, body);
+  }
+  reorderPhotos(tourId: number, ids: number[]): Observable<AdminPhoto[]> {
+    return this.http.post<AdminPhoto[]>(`/api/admin/tours/${tourId}/photos/order`, { ids });
+  }
+  updatePhoto(id: number, body: { caption?: string; credit?: string }): Observable<AdminPhoto> {
+    return this.http.patch<AdminPhoto>(`/api/admin/photos/${id}`, body);
+  }
+  deletePhoto(id: number): Observable<void> { return this.http.delete<void>(`/api/admin/photos/${id}`); }
   guides(): Observable<AdminGuide[]> { return this.http.get<AdminGuide[]>('/api/admin/guides'); }
   reviewBookings(lang: Lang, page = 1): Observable<Page<ReviewBooking>> {
     return this.http.get<Page<ReviewBooking>>('/api/admin/bookings/review', { params: { lang, page } });

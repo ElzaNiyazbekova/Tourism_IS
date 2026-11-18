@@ -58,7 +58,12 @@ import { AppDatePipe, AppMoneyPipe } from '../../core/pipes';
       <div class="row g-3">
         @for (t of page()?.results; track t.id) {
           <div class="col-md-6 col-lg-4">
-            <a class="card h-100 card-hover text-body" [routerLink]="['/tours', t.id]">
+            <a class="card h-100 card-hover text-body overflow-hidden" [routerLink]="['/tours', t.id]">
+              @if (t.cover_photo) {
+                <img [src]="t.cover_photo" class="card-img-top tour-cover" [alt]="t.title" loading="lazy">
+              } @else {
+                <div class="card-img-top tour-cover tour-cover-empty" aria-hidden="true">🏔</div>
+              }
               <div class="card-body d-flex flex-column">
                 <div class="small text-muted">{{ t.destination.name }}, {{ t.destination.country }}</div>
                 <h2 class="h5 mt-1">{{ t.title }}</h2>

@@ -12,11 +12,20 @@ interface Flash { kind: 'success' | 'danger'; text: string; }
   selector: 'app-admin-bookings-review',
   imports: [TranslatePipe, AppDatePipe, AppMoneyPipe],
   template: `
-    <h1 class="h4 mb-1">{{ 'admin.bookings_review' | translate }}</h1>
-    <p class="text-muted small">{{ 'admin.review.note' | translate }}</p>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+      <div>
+        <h1 class="h4 mb-1">{{ 'admin.bookings_review' | translate }}</h1>
+        <p class="text-muted small mb-0">{{ 'admin.review.note' | translate }}</p>
+      </div>
+      @if (page(); as p) {
+        <span class="badge rounded-pill text-bg-warning px-3 py-2">{{ p.count }} {{ 'admin.review.cards' | translate }}</span>
+      }
+    </div>
+
     @if (flash(); as f) {
       <div class="alert" [class.alert-success]="f.kind === 'success'" [class.alert-danger]="f.kind === 'danger'" role="status">{{ f.text }}</div>
     }
+
     @if (loading()) {
       <div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
     } @else if (failed()) {
@@ -26,61 +35,94 @@ interface Flash { kind: 'success' | 'danger'; text: string; }
       </div>
     } @else if (page(); as p) {
       @if (p.results.length === 0) {
-        <div class="text-center text-muted py-5">{{ 'admin.review.empty' | translate }}</div>
+        <div class="card border-0 shadow-sm">
+          <div class="card-body text-center py-5">
+            <div class="display-6 mb-2">✓</div>
+            <h2 class="h6">{{ 'admin.review.empty' | translate }}</h2>
+          </div>
+        </div>
       }
+
       @for (b of p.results; track b.id) {
-        <article class="card mb-3 border-danger-subtle">
-          <div class="card-body">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-              <div>
-                <h2 class="h6 mb-1">{{ b.booking_ref }} Â· {{ b.package_title }}</h2>
-                <div class="small text-muted">{{ b.customer_name }} Â· <a [href]="'mailto:' + b.customer_email">{{ b.customer_email }}</a></div>
-              </div>
-              <div class="d-flex gap-1 flex-wrap">
-                @if (scenario(b); as demoScenario) {
-                  <span class="badge text-bg-info">{{ ('admin.review.scenario.' + demoScenario) | translate }}</span>
-                }
-                <span class="badge text-bg-danger">{{ 'status.expired' | translate }}</span>
-              </div>
-            </div>
-            <div class="row small mt-3 g-2">
-              <div class="col-sm-6"><strong>{{ 'admin.review.departure' | translate }}:</strong> {{ b.start_at | appDate: true }}</div>
-              <div class="col-sm-6"><strong>{{ 'booking.travelers' | translate }}:</strong> {{ b.travelers_count }}</div>
-              <div class="col-sm-6"><strong>{{ 'booking.total' | translate }}:</strong> {{ b.total_cost | appMoney }}</div>
-              <div class="col-sm-6"><strong>{{ 'admin.review.created' | translate }}:</strong> {{ b.created_at | appDate: true }}</div>
-              @if (b.special_request) { <div class="col-12"><strong>{{ 'admin.review.request' | translate }}:</strong> {{ b.special_request }}</div> }
-            </div>
-            <div class="small mt-3">
-              <strong>{{ 'admin.review.payments' | translate }}:</strong>
-              @if (b.payments.length) {
-                @for (payment of b.payments; track payment.id) {
-                  <span class="badge text-bg-light border ms-1">{{ payment.status }} Â· {{ payment.amount | appMoney }} Â· {{ payment.transaction_ref }}</span>
-                }
-              } @else { <span class="text-muted">{{ 'admin.review.no_payments' | translate }}</span> }
-            </div>
-            <div class="d-flex flex-wrap gap-2 mt-3">
-              <button class="btn btn-primary btn-sm" [disabled]="busy() === b.id" (click)="fix(b)">{{ 'admin.review.fix' | translate }}</button>
-              @if (mergeCandidates(b).length) {
-                <div class="d-flex gap-2">
-                  <select class="form-select form-select-sm" [value]="mergeTargets()[b.id] || ''" (change)="setMergeTarget(b.id, $event)" [attr.aria-label]="'admin.review.merge_target' | translate">
-                    <option value="">{{ 'admin.review.merge_target' | translate }}</option>
-                    @for (candidate of mergeCandidates(b); track candidate.id) {
-                      <option [value]="candidate.id">{{ candidate.booking_ref }} Â· {{ candidate.customer_name }}</option>
-                    }
-                  </select>
-                  <button class="btn btn-outline-primary btn-sm text-nowrap" [disabled]="busy() === b.id || !mergeTargets()[b.id]" (click)="merge(b)">{{ 'admin.review.merge' | translate }}</button>
+        <article class="card border-0 shadow-sm mb-3 overflow-hidden">
+          <div class="border-start border-4 border-warning">
+            <div class="card-body p-4">
+              <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div>
+                  <div class="small text-uppercase text-muted mb-1">{{ 'admin.review.booking' | translate }}</div>
+                  <h2 class="h5 mb-1">{{ b.booking_ref }}</h2>
+                  <div class="text-muted">{{ b.package_title }}</div>
                 </div>
-              }
-              @if (rejecting() === b.id) {
-                <button class="btn btn-danger btn-sm" [disabled]="busy() === b.id" (click)="reject(b)">{{ 'admin.review.reject_confirm' | translate }}</button>
-                <button class="btn btn-outline-secondary btn-sm" (click)="rejecting.set(null)">{{ 'common.cancel' | translate }}</button>
-              } @else {
-                <button class="btn btn-outline-danger btn-sm" [disabled]="busy() === b.id" (click)="rejecting.set(b.id)">{{ 'admin.review.reject' | translate }}</button>
-              }
+                <span class="badge rounded-pill text-bg-warning px-3 py-2">{{ 'admin.review.status_mismatch' | translate }}</span>
+              </div>
+
+              <div class="row g-3 mt-2">
+                <div class="col-md-7">
+                  <div class="rounded-3 bg-light border p-3 h-100">
+                    <div class="small text-muted mb-2">{{ 'admin.review.issue' | translate }}</div>
+                    <div class="fw-semibold mb-3">{{ ('admin.review.exception.' + b.exception_reason) | translate }}</div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                      <span class="badge rounded-pill px-3 py-2" [class.text-bg-danger]="b.status === 'Expired'" [class.text-bg-warning]="b.status === 'Pending'" [class.text-bg-success]="b.status === 'Confirmed'" [class.text-bg-secondary]="b.status === 'Completed'">
+                        {{ ('status.' + b.status.toLowerCase()) | translate }}
+                      </span>
+                      <span class="text-muted fs-5">→</span>
+                      <span class="badge rounded-pill text-bg-primary px-3 py-2">
+                        {{ ('status.' + b.suggested_status.toLowerCase()) | translate }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-md-5">
+                  <div class="rounded-3 bg-light border p-3 h-100">
+                    <div class="small text-muted mb-2">{{ 'admin.review.customer' | translate }}</div>
+                    <div class="fw-semibold">{{ b.customer_name }}</div>
+                    <a class="small" [href]="'mailto:' + b.customer_email">{{ b.customer_email }}</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="row g-2 mt-1">
+                <div class="col-sm-6 col-lg-3">
+                  <div class="border rounded-3 p-3 h-100">
+                    <div class="small text-muted">{{ 'admin.review.departure' | translate }}</div>
+                    <div class="fw-semibold small mt-1">{{ b.start_at | appDate: true }}</div>
+                  </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                  <div class="border rounded-3 p-3 h-100">
+                    <div class="small text-muted">{{ 'booking.travelers' | translate }}</div>
+                    <div class="fw-semibold mt-1">{{ b.travelers_count }}</div>
+                  </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                  <div class="border rounded-3 p-3 h-100">
+                    <div class="small text-muted">{{ 'booking.total' | translate }}</div>
+                    <div class="fw-semibold mt-1">{{ b.total_cost | appMoney }}</div>
+                  </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                  <div class="border rounded-3 p-3 h-100">
+                    <div class="small text-muted">{{ 'admin.review.suggested' | translate }}</div>
+                    <div class="fw-semibold mt-1">{{ ('status.' + b.suggested_status.toLowerCase()) | translate }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3 pt-3 border-top">
+                <div class="small text-muted">
+                  {{ 'admin.review.created' | translate }}: {{ b.created_at | appDate: true }}
+                </div>
+                <button class="btn btn-primary px-4" [disabled]="busy() === b.id" (click)="fix(b)">
+                  @if (busy() === b.id) { <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> }
+                  {{ 'admin.review.fix' | translate }}
+                </button>
+              </div>
             </div>
           </div>
         </article>
       }
+
       @if (p.count > 100) {
         <div class="d-flex justify-content-between align-items-center mt-3">
           <button class="btn btn-outline-secondary btn-sm" [disabled]="!p.previous" (click)="load(currentPage() - 1)">{{ 'common.prev' | translate }}</button>
@@ -101,8 +143,6 @@ export class AdminBookingsReviewComponent {
   loading = signal(true);
   failed = signal(false);
   busy = signal<number | null>(null);
-  rejecting = signal<number | null>(null);
-  mergeTargets = signal<Record<number, number>>({});
   flash = signal<Flash | null>(null);
 
   constructor() { effect(() => { this.language.lang(); untracked(() => this.load(1)); }); }
@@ -116,49 +156,16 @@ export class AdminBookingsReviewComponent {
     });
   }
 
-  mergeCandidates(booking: ReviewBooking): ReviewBooking[] {
-    return (this.page()?.results ?? []).filter(candidate => candidate.id !== booking.id
-      && candidate.departure_id === booking.departure_id && candidate.customer_email === booking.customer_email
-      && candidate.status === 'Expired');
-  }
-
-  scenario(booking: ReviewBooking): string | null {
-    const request = booking.special_request;
-    if (!request.startsWith('[review-demo]')) return null;
-    if (request.includes('no successful payment')) return 'fix_pending';
-    if (request.includes('successful payment')) return 'fix_confirmed';
-    if (request.includes('MERGE:')) return 'merge';
-    if (request.includes('REJECT:')) return 'reject';
-    return 'example';
-  }
-
-  setMergeTarget(id: number, event: Event): void {
-    const value = Number((event.target as HTMLSelectElement).value);
-    this.mergeTargets.update(targets => ({ ...targets, [id]: value || 0 }));
-  }
-
   fix(booking: ReviewBooking): void {
     this.run(booking.id, this.api.fixReviewBooking(booking.id, this.language.lang()),
-      result => this.translate.instant(result.status === 'Confirmed' ? 'admin.review.fixed_confirmed' : 'admin.review.fixed_pending'));
-  }
-
-  merge(booking: ReviewBooking): void {
-    const target = this.mergeTargets()[booking.id];
-    if (!target) return;
-    this.run(booking.id, this.api.mergeReviewBooking(booking.id, target, this.language.lang()),
-      result => this.translate.instant('admin.review.merged', { ref: result.booking_ref }));
-  }
-
-  reject(booking: ReviewBooking): void {
-    this.run(booking.id, this.api.rejectReviewBooking(booking.id, this.language.lang()),
-      () => this.translate.instant('admin.review.rejected'));
+      result => this.translate.instant('admin.review.fixed_status', { status: result.status }));
   }
 
   private run(id: number, request: import('rxjs').Observable<ReviewBooking>, message: (result: ReviewBooking) => string): void {
     this.busy.set(id);
     this.flash.set(null);
     request.subscribe({
-      next: result => { this.busy.set(null); this.rejecting.set(null); this.flash.set({ kind: 'success', text: message(result) }); this.load(); },
+      next: result => { this.busy.set(null); this.flash.set({ kind: 'success', text: message(result) }); this.load(); },
       error: error => { this.busy.set(null); this.showError(error); this.load(); },
     });
   }

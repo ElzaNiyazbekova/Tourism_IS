@@ -17,6 +17,7 @@ import { AuthService } from '../../core/auth.service';
             <a class="list-group-item list-group-item-action" routerLink="/admin/departures" routerLinkActive="active">{{ 'admin.departures' | translate }}</a>
             <a class="list-group-item list-group-item-action" routerLink="/admin/dashboard" routerLinkActive="active">{{ 'admin.dashboard' | translate }}</a>
             <a class="list-group-item list-group-item-action" routerLink="/admin/bookings" routerLinkActive="active">{{ 'admin.bookings' | translate }}</a>
+            <a class="list-group-item list-group-item-action" routerLink="/admin/review-queue" routerLinkActive="active">{{ 'admin.review_queue' | translate }}</a>
           }
           @if (isAdmin()) {
             <a class="list-group-item list-group-item-action" routerLink="/admin/audit" routerLinkActive="active">{{ 'admin.audit' | translate }}</a>

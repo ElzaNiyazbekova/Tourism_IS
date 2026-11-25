@@ -1,5 +1,6 @@
 """Staff actions for bookings that need manual review."""
 from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -38,24 +39,48 @@ def _ensure_no_active_duplicate(booking, exclude_ids):
 
 
 def fix_review_booking(actor, booking_id):
-    """Resolve using payment evidence: successful payment -> Confirmed, otherwise Pending."""
+    """Resolve a simple booking/departure status mismatch."""
     try:
         with transaction.atomic():
             booking = _lock_review_booking(booking_id)
-            _ensure_no_active_duplicate(booking, [booking.pk])
-            old = {"status": booking.status, "expires_at": booking.expires_at.isoformat() if booking.expires_at else None}
-            booking.status = _resolved_status(booking)
-            if booking.status == Booking.CONFIRMED:
-                booking.expires_at = None
+            departure = Departure.objects.select_for_update(of=("self",)).get(pk=booking.departure_id)
+            now = timezone.now()
+
+            if booking.status == Booking.COMPLETED and departure.end_at > now:
+                has_successful_payment = Payment.objects.filter(booking=booking, status=Payment.SUCCESS).exists()
+                target = Booking.CONFIRMED if has_successful_payment else Booking.CANCELLED
+                released = 0
+                if target == Booking.CANCELLED:
+                    released = max(0, min(booking.travelers_count,
+                                           departure.seats_total - departure.seats_available))
+                    departure.seats_available += released
+                    departure.save(update_fields=["seats_available"])
+            elif booking.status == Booking.CONFIRMED and departure.end_at <= now:
+                target = Booking.COMPLETED
+                released = 0
+            elif booking.status == Booking.PENDING and departure.end_at <= now:
+                target = Booking.EXPIRED
+                released = max(0, min(booking.travelers_count,
+                                       departure.seats_total - departure.seats_available))
+                departure.seats_available += released
+                departure.save(update_fields=["seats_available"])
             else:
-                booking.expires_at = timezone.now() + timedelta(hours=settings.PENDING_BOOKING_HOURS)
+                raise ApiError("review_not_needed", "errors.review.not_needed",
+                               "This booking does not have a status/departure mismatch.", 409)
+
+            old = {"status": booking.status,
+                   "expires_at": booking.expires_at.isoformat() if booking.expires_at else None}
+            booking.status = target
+            if target in (Booking.CANCELLED, Booking.EXPIRED, Booking.COMPLETED):
+                booking.expires_at = None
             booking.save(update_fields=["status", "expires_at"])
             audit(actor, "status_change", "bookings", booking.pk, old,
-                  {"status": booking.status, "reason": "staff_review_fix", "expires_at": booking.expires_at.isoformat() if booking.expires_at else None})
+                  {"status": target, "reason": "booking_status_exception",
+                   "seats_returned": released})
             return booking
     except IntegrityError:
         raise ApiError("booking_conflict", "errors.review.booking_conflict",
-                       "An active booking already exists for this traveller and departure.", 409)
+                       "The booking changed while it was being reviewed.", 409)
 
 
 def reject_review_booking(actor, booking_id):

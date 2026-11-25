@@ -39,32 +39,95 @@ class BookingReviewTests(TestCase):
 
     def test_staff_list_is_restricted_and_contains_review_rows(self):
         url = "/api/admin/bookings/review"
+        self.booking.status = Booking.COMPLETED
+        self.booking.save(update_fields=["status"])
+        self.add_payment(self.booking, Payment.SUCCESS)
         response = self.manager_client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["booking_ref"], self.booking.booking_ref)
         self.assertEqual(response.data["results"][0]["customer_email"], self.tourist.email)
+        self.assertEqual(response.data["results"][0]["suggested_status"], Booking.CONFIRMED)
         self.assertEqual(client_for(self.admin).get(url).status_code, 200)
         self.assertEqual(client_for(self.analyst).get(url).status_code, 403)
         self.assertEqual(client_for().get(url).status_code, 401)
 
-    def test_fix_uses_payment_evidence_and_audits(self):
+    def test_review_queue_excludes_expired_without_successful_payment(self):
+        url = "/api/admin/bookings/review"
+        response = self.manager_client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(self.booking.booking_ref, [r["booking_ref"] for r in response.data["results"]])
+        self.add_payment(self.booking, Payment.SUCCESS)
+        response = self.manager_client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.booking.booking_ref, [r["booking_ref"] for r in response.data["results"]])
+
+    def test_review_queue_excludes_normal_expired_booking(self):
+        url = "/api/admin/bookings/review"
+        response = self.manager_client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(self.booking.booking_ref, [r["booking_ref"] for r in response.data["results"]])
+
+    def test_review_queue_includes_pending_after_departure_end(self):
+        now = timezone.now()
+        self.departure.end_at = now - timedelta(hours=1)
+        self.departure.start_at = now - timedelta(hours=3)
+        self.departure.save(update_fields=["start_at", "end_at"])
+        self.booking.status = Booking.PENDING
+        self.booking.save(update_fields=["status"])
+        response = self.manager_client.get("/api/admin/bookings/review")
+        self.assertEqual(response.status_code, 200)
+        row = next(r for r in response.data["results"] if r["booking_ref"] == self.booking.booking_ref)
+        self.assertEqual(row["suggested_status"], Booking.EXPIRED)
+
+    def test_review_queue_includes_confirmed_after_departure_end(self):
+        now = timezone.now()
+        self.departure.end_at = now - timedelta(hours=1)
+        self.departure.start_at = now - timedelta(hours=3)
+        self.departure.save(update_fields=["start_at", "end_at"])
+        self.booking.status = Booking.CONFIRMED
+        self.booking.save(update_fields=["status"])
+        response = self.manager_client.get("/api/admin/bookings/review")
+        self.assertEqual(response.status_code, 200)
+        row = next(r for r in response.data["results"] if r["booking_ref"] == self.booking.booking_ref)
+        self.assertEqual(row["suggested_status"], Booking.COMPLETED)
+
+    def test_fix_completed_before_departure_end_with_payment(self):
+        self.booking.status = Booking.COMPLETED
+        self.booking.save(update_fields=["status"])
         self.add_payment(self.booking, Payment.SUCCESS)
         response = self.manager_client.post(f"/api/admin/bookings/{self.booking.pk}/fix", {}, format="json")
         self.assertEqual(response.status_code, 200, response.content)
         self.booking.refresh_from_db()
         self.assertEqual(self.booking.status, Booking.CONFIRMED)
-        self.assertIsNone(self.booking.expires_at)
         self.assertTrue(AuditLog.objects.filter(record_id=self.booking.pk, action="status_change").exists())
 
-    def test_fix_without_successful_payment_restarts_pending_deadline(self):
-        self.add_payment(self.booking)
-        self.booking.expires_at = timezone.now() - timedelta(days=1)
-        self.booking.save(update_fields=["expires_at"])
+    def test_fix_confirmed_after_departure_end_to_completed(self):
+        now = timezone.now()
+        self.departure.end_at = now - timedelta(hours=1)
+        self.departure.start_at = now - timedelta(hours=3)
+        self.departure.save(update_fields=["start_at", "end_at"])
+        self.booking.status = Booking.CONFIRMED
+        self.booking.save(update_fields=["status"])
         response = self.manager_client.post(f"/api/admin/bookings/{self.booking.pk}/fix", {}, format="json")
         self.assertEqual(response.status_code, 200, response.content)
         self.booking.refresh_from_db()
-        self.assertEqual(self.booking.status, Booking.PENDING)
-        self.assertGreater(self.booking.expires_at, timezone.now())
+        self.assertEqual(self.booking.status, Booking.COMPLETED)
+
+    def test_fix_pending_after_departure_end_to_expired_and_releases_seats(self):
+        now = timezone.now()
+        self.departure.end_at = now - timedelta(hours=1)
+        self.departure.start_at = now - timedelta(hours=3)
+        self.departure.save(update_fields=["start_at", "end_at"])
+        self.departure.seats_available = 5
+        self.departure.save(update_fields=["seats_available"])
+        self.booking.status = Booking.PENDING
+        self.booking.save(update_fields=["status"])
+        response = self.manager_client.post(f"/api/admin/bookings/{self.booking.pk}/fix", {}, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.booking.refresh_from_db()
+        self.departure.refresh_from_db()
+        self.assertEqual(self.booking.status, Booking.EXPIRED)
+        self.assertEqual(self.departure.seats_available, 7)
 
     def test_reject_cancels_and_releases_seats(self):
         self.departure.seats_available = 5
@@ -115,5 +178,5 @@ class SeedReviewExamplesCommandTests(TestCase):
         call_command("seed_review_examples", stdout=StringIO())
         first_count = Booking.objects.filter(special_request__startswith="[review-demo]").count()
         call_command("seed_review_examples", "--new", stdout=StringIO())
-        self.assertEqual(first_count, 5)
-        self.assertEqual(Booking.objects.filter(special_request__startswith="[review-demo]").count(), 10)
+        self.assertEqual(first_count, 3)
+        self.assertEqual(Booking.objects.filter(special_request__startswith="[review-demo]").count(), 6)

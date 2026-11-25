@@ -26,6 +26,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       { path: 'dashboard', canActivate: [staff], loadComponent: () => import('./features/admin/admin-dashboard.component').then(m => m.AdminDashboardComponent) },
       { path: 'bookings', canActivate: [staff], loadComponent: () => import('./features/admin/admin-bookings.component').then(m => m.AdminBookingsComponent) },
+      { path: 'review-queue', canActivate: [staff], loadComponent: () => import('./features/admin/admin-bookings-review.component').then(m => m.AdminBookingsReviewComponent) },
       { path: 'tours', canActivate: [staff], loadComponent: () => import('./features/admin/admin-tours.component').then(m => m.AdminToursComponent) },
       { path: 'tours/new', canActivate: [staff], loadComponent: () => import('./features/admin/admin-tour-form.component').then(m => m.AdminTourFormComponent) },
       { path: 'tours/:id', canActivate: [staff], loadComponent: () => import('./features/admin/admin-tour-form.component').then(m => m.AdminTourFormComponent) },

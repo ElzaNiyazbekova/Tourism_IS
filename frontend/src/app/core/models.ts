@@ -65,7 +65,13 @@ export interface ApiErrorBody {
 export interface Payment { id: number; amount: string; status: 'Success' | 'Failed' | 'Pending'; transaction_ref: string; paid_at: string | null; }
 export interface BookingDetail extends Booking { payments: Payment[]; }
 export interface ReviewBooking extends Booking {
-  departure_id: number; customer_name: string; customer_email: string; payments: Payment[];
+  departure_id: number;
+  departure_seats_available: number;
+  customer_name: string;
+  customer_email: string;
+  payments: Payment[];
+  exception_reason: string;
+  suggested_status: string;
 }
 export interface PayResult { result: 'pay' | 'fail'; message_key: string; payment: Payment; booking: Booking; }
 

@@ -23,7 +23,9 @@ export const routes: Routes = [
     path: 'admin', canActivate: [anyAdmin],
     loadComponent: () => import('./features/admin/admin-layout.component').then(m => m.AdminLayoutComponent),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'reports' },
+      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      { path: 'dashboard', canActivate: [staff], loadComponent: () => import('./features/admin/admin-dashboard.component').then(m => m.AdminDashboardComponent) },
+      { path: 'bookings', canActivate: [staff], loadComponent: () => import('./features/admin/admin-bookings.component').then(m => m.AdminBookingsComponent) },
       { path: 'tours', canActivate: [staff], loadComponent: () => import('./features/admin/admin-tours.component').then(m => m.AdminToursComponent) },
       { path: 'tours/new', canActivate: [staff], loadComponent: () => import('./features/admin/admin-tour-form.component').then(m => m.AdminTourFormComponent) },
       { path: 'tours/:id', canActivate: [staff], loadComponent: () => import('./features/admin/admin-tour-form.component').then(m => m.AdminTourFormComponent) },

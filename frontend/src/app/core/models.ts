@@ -92,11 +92,6 @@ export interface AuditEntry {
 }
 export interface AuditFacets { tables: string[]; actions: string[]; }
 
-export interface AdminBookingRow {
-  id: number; booking_ref: string; package_id: number; package_title: string; guide_name: string;
-  booking_date: string; travel_date: string; travelers_count: number; total_cost: string;
-  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Expired';
-  special_request: string; expires_at: string | null; created_at: string;
-}
+export interface AdminBookingRow { booking_ref:string; tourist_name:string; tourist_email:string; package_title:string; travel_date:string; travelers_count:number; total_cost:string; status:'Pending'|'Confirmed'|'Cancelled'|'Completed'|'Expired'; created_at:string; }
 
 export interface AdminStats { totals:{bookings:number;revenue:string;average_booking_value:string;cancellation_expiry_rate:number;cancellation_expiry_rate_label:string}; bookings_by_status:{status:string;count:number}[]; bookings_per_month:{month:string;count:number}[]; top_packages_by_revenue:{package_id:number;title:string;revenue:string}[]; }

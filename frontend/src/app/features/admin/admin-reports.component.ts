@@ -11,6 +11,7 @@ import { AppMoneyPipe } from '../../core/pipes';
   imports: [TranslatePipe, AppMoneyPipe],
   template: `
     <h1 class="h4 mb-1">{{ 'admin.reports' | translate }}</h1>
+    <div class="d-flex gap-2 mb-3"><button class="btn btn-success" (click)="download()">{{ 'admin.download_csv' | translate }}</button><button class="btn btn-outline-secondary" (click)="print()">{{ 'admin.print_pdf' | translate }}</button></div>
     <p class="text-muted small">{{ 'admin.reports_note' | translate }}</p>
     @if (loading()) {
       <div class="text-center py-5"><div class="spinner-border" role="status"></div></div>
@@ -48,6 +49,8 @@ export class AdminReportsComponent {
 
   constructor() { effect(() => { this.language.lang(); untracked(() => this.load()); }); }
 
+  download(): void { this.api.export(this.language.lang()).subscribe(blob=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`analytics_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(a.href); }); }
+  print(): void { window.print(); }
   load(): void {
     this.loading.set(true); this.failed.set(false);
     this.api.packages(this.language.lang()).subscribe({

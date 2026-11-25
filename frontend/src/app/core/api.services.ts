@@ -128,7 +128,7 @@ export class AdminService {
   }
   adminBookings(params: Record<string,string|number|undefined>): Observable<Page<AdminBookingRow>> { let p=new HttpParams(); for(const [k,v] of Object.entries(params)) if(v!==undefined&&v!=='') p=p.set(k,String(v)); return this.http.get<Page<AdminBookingRow>>('/api/admin/bookings',{params:p}); }
   adminStats(params: Record<string,string|undefined>): Observable<AdminStats> { let p=new HttpParams(); for(const [k,v] of Object.entries(params)) if(v) p=p.set(k,v); return this.http.get<AdminStats>('/api/admin/stats',{params:p}); }
-  reportCsv(params: Record<string,string|undefined>): Observable<Blob> { let p=new HttpParams().set('format','csv'); for(const [k,v] of Object.entries(params)) if(v) p=p.set(k,v); return this.http.get('/api/admin/report/export',{params:p,responseType:'blob'}); }
+  reportCsv(params: Record<string,string|undefined>): Observable<Blob> { let p=new HttpParams(); for(const [k,v] of Object.entries(params)) if(v) p=p.set(k,v); return this.http.get('/api/admin/report/export',{params:p,responseType:'blob'}); }
 }
 
 @Injectable({ providedIn: 'root' })

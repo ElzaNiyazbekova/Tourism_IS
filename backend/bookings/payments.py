@@ -42,6 +42,14 @@ def pay_booking(user, booking_id, outcome):
             raise ApiError("already_paid", "errors.payment.already_paid", "This booking is already paid.", 409)
         if booking.status == Booking.EXPIRED:
             raise ApiError("booking_expired", "errors.payment.expired", "The payment time (48 hours) has run out.", 409)
+        if (booking.status == Booking.PENDING and booking.expires_at is not None and booking.expires_at <= now):
+            booking.status = Booking.EXPIRED
+            booking.save(update_fields=["status"])
+            booking.departure.seats_available += booking.travelers_count
+            booking.departure.save(update_fields=["seats_available"])
+            raise ApiError("booking_expired", "errors.payment.expired", "The payment time (48 hours) has run out.", 409)
+        if booking.status != Booking.PENDING:
+            raise ApiError("booking_not_payable", "errors.payment.not_payable", "Only a Pending booking can be paid.", 409)
         if booking.departure.start_at <= now:
             raise ApiError("departure_in_past", "errors.booking.departure_in_past",
                            "This departure has already started.", 409)

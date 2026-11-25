@@ -26,7 +26,7 @@ class BookingReviewTests(TestCase):
             booking_ref=f"TMP-{user.pk}-{Booking.objects.count() + 1}", user=user, departure=self.departure,
             booking_date=timezone.localdate(), travel_date=timezone.localtime(self.departure.start_at).date(),
             travelers_count=travelers, total_cost=Decimal("15000.00") * travelers,
-            status=Booking.PENDING,
+            status=Booking.EXPIRED,
             special_request="", expires_at=now + timedelta(hours=12))
         booking.booking_ref = f"BK-{booking.pk:04d}"
         booking.save(update_fields=["booking_ref"])
@@ -99,8 +99,8 @@ class BookingReviewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.booking.refresh_from_db()
         source.refresh_from_db()
-        self.assertEqual(self.booking.status, Booking.PENDING)
-        self.assertEqual(source.status, Booking.PENDING)
+        self.assertEqual(self.booking.status, Booking.EXPIRED)
+        self.assertEqual(source.status, Booking.EXPIRED)
 
     def test_only_staff_can_change_review_bookings(self):
         url = f"/api/admin/bookings/{self.booking.pk}/reject"

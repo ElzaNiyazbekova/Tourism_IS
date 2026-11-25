@@ -276,7 +276,7 @@ class AdminBackendTests(TestCase):
     def test_stats_and_exports(self):
         r=client_for(self.admin).get("/api/admin/stats"); self.assertEqual(r.status_code,200)
         self.assertEqual(r.data["totals"]["bookings"],1)
-        r=client_for(self.admin).get("/api/admin/report/export?format=csv&lang=en")
+        r=client_for(self.admin).get("/api/admin/report/export?lang=en")
         self.assertIn("Content-Disposition",r); self.assertTrue(r.content.startswith(b"\xef\xbb\xbf"))
         self.assertTrue(AuditLog.objects.filter(action="report_export").exists())
         r=client_for(self.analyst).get("/api/analytics/export?lang=en")

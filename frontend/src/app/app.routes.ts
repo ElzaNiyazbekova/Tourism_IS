@@ -16,6 +16,8 @@ export const routes: Routes = [
   { path: 'register', loadComponent: () => import('./features/auth/register.component').then(m => m.RegisterComponent) },
   { path: 'my-bookings', canActivate: [authGuard], loadComponent: () => import('./features/bookings/my-bookings.component').then(m => m.MyBookingsComponent) },
   { path: 'manage-bookings', canActivate: [roleGuard('tourist')], loadComponent: () => import('./features/flexbook/manage-bookings.component').then(m => m.ManageBookingsComponent) },
+  { path: 'favorites', canActivate: [roleGuard('tourist')], loadComponent: () => import('./features/favorites/favorites.component').then(m => m.FavoritesComponent) },
+  { path: 'guide', canActivate: [roleGuard('guide')], loadComponent: () => import('./features/guide-cabinet/guide-cabinet.component').then(m => m.GuideCabinetComponent) },
   { path: 'pay/:id', canActivate: [roleGuard('tourist')], loadComponent: () => import('./features/payment/payment.component').then(m => m.PaymentComponent) },
   {
     path: 'admin', canActivate: [anyAdmin],

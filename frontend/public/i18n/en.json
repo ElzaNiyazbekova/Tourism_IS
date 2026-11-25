@@ -11,7 +11,9 @@
     "logout": "Log out",
     "language": "Language",
     "menu": "Menu",
-    "admin": "Admin"
+    "admin": "Admin",
+    "guide_cabinet": "Guide cabinet",
+    "favorites": "Favourites"
   },
   "common": {
     "loading": "Loading…",
@@ -400,5 +402,47 @@
     "handover_declined": "Your offer for booking {{ref}} was declined.",
     "handover_received": "Booking {{ref}} is now yours.",
     "handover_expired": "Your offer for booking {{ref}} expired."
+  },
+  "cabinet": {
+    "title": "Guide cabinet",
+    "subtitle": "Your departures, your travellers and your public profile.",
+    "upcoming_count": "Upcoming departures",
+    "completed_count": "Tours led",
+    "travelers_upcoming": "Travellers coming",
+    "tab_upcoming": "Upcoming",
+    "tab_past": "Past",
+    "empty_upcoming": "No upcoming departures assigned to you.",
+    "empty_past": "No past departures yet.",
+    "booked": "{{bookings}} booking(s), {{travelers}} traveller(s)",
+    "seats": "{{taken}} / {{total}} seats taken",
+    "cancelled_departure": "Departure cancelled",
+    "show_travelers": "Travellers",
+    "hide_travelers": "Hide",
+    "no_travelers": "Nobody has booked this departure yet.",
+    "col_name": "Name",
+    "col_phone": "Phone",
+    "col_group": "People",
+    "col_status": "Status",
+    "col_request": "Request",
+    "group_size": "{{count}} people",
+    "profile": "My public profile",
+    "bio": "About me",
+    "bio_hint": "Tourists see this on your public profile page.",
+    "languages": "Languages I speak",
+    "languages_required": "Choose at least one language.",
+    "save": "Save",
+    "saved": "Saved.",
+    "save_failed": "Could not save. Check the fields.",
+    "view_public": "Open public profile",
+    "inactive": "Your guide profile is deactivated. Ask a manager to re-activate it."
+  },
+  "favorites": {
+    "title": "My favourites",
+    "subtitle": "Tours you saved with ♡ to look at later.",
+    "empty": "You have not saved any tours yet. Tap ♡ on a tour to keep it here.",
+    "browse": "Browse tours",
+    "add": "Save to favourites",
+    "remove": "Remove from favourites",
+    "saved": "Saved"
   }
 }

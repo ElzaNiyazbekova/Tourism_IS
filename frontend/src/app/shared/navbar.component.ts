@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { AuthService } from '../core/auth.service';
+import { FavoritesService } from '../core/favorites.service';
 import { LANGUAGES, LanguageService } from '../core/language.service';
 import { Lang } from '../core/models';
 
@@ -22,6 +23,14 @@ import { Lang } from '../core/models';
             @if (auth.role() === 'tourist') {
               <li class="nav-item"><a class="nav-link" routerLink="/my-bookings" routerLinkActive="active">{{ 'nav.my_bookings' | translate }}</a></li>
               <li class="nav-item"><a class="nav-link" routerLink="/manage-bookings" routerLinkActive="active">{{ 'nav.manage_bookings' | translate }}</a></li>
+              <li class="nav-item">
+                <a class="nav-link" routerLink="/favorites" routerLinkActive="active">♡ {{ 'nav.favorites' | translate }}
+                  @if (fav.count()) { <span class="badge rounded-pill text-bg-light ms-1">{{ fav.count() }}</span> }
+                </a>
+              </li>
+            }
+            @if (auth.role() === 'guide') {
+              <li class="nav-item"><a class="nav-link" routerLink="/guide" routerLinkActive="active">{{ 'nav.guide_cabinet' | translate }}</a></li>
             }
             @if (isStaff()) {
               <li class="nav-item"><a class="nav-link" routerLink="/admin" routerLinkActive="active">{{ 'nav.admin' | translate }}</a></li>
@@ -49,6 +58,7 @@ import { Lang } from '../core/models';
 })
 export class NavbarComponent {
   auth = inject(AuthService);
+  fav = inject(FavoritesService);
   language = inject(LanguageService);
   languages = LANGUAGES;
   open = signal(false);

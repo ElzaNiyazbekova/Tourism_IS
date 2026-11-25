@@ -9,12 +9,13 @@ import { BookingsService, ToursService } from '../../core/api.services';
 import { LanguageService } from '../../core/language.service';
 import { AuthService } from '../../core/auth.service';
 import { ApiErrorBody, Booking, Departure, TourDetail } from '../../core/models';
+import { FavoriteButtonComponent } from '../../shared/favorite-button.component';
 import { AppDatePipe, AppMoneyPipe } from '../../core/pipes';
 import { errorText, toApiError } from '../../core/api-error';
 
 @Component({
   selector: 'app-tour-detail',
-  imports: [ReactiveFormsModule, RouterLink, TranslatePipe, AppDatePipe, AppMoneyPipe],
+  imports: [ReactiveFormsModule, RouterLink, TranslatePipe, AppDatePipe, AppMoneyPipe, FavoriteButtonComponent],
   template: `
     <a routerLink="/tours" class="small">‹ {{ 'common.back_to_tours' | translate }}</a>
 
@@ -28,7 +29,10 @@ import { errorText, toApiError } from '../../core/api-error';
     } @else if (tour(); as t) {
       <div class="mt-2">
         <div class="small text-muted">{{ t.destination.name }}, {{ t.destination.country }}</div>
-        <h1 class="h3">{{ t.title }}</h1>
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+          <h1 class="h3">{{ t.title }}</h1>
+          <app-favorite-button [tourId]="t.id" />
+        </div>
         <p>{{ t.description }}</p>
         <div class="mb-4">
           <span class="badge text-bg-primary me-1">{{ t.base_price | appMoney }}</span>

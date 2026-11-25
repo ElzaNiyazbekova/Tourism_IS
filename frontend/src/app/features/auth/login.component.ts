@@ -55,7 +55,7 @@ export class LoginComponent {
     this.error.set('');
     const { email, password } = this.form.getRawValue();
     this.auth.login(email, password).subscribe({
-      next: () => this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') || '/tours'),
+      next: u => this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') || (u.role === 'guide' ? '/guide' : '/tours')),
       error: e => {
         const err = toApiError(e);
         this.error.set(errorText(this.translate, err.message_key, err.message));

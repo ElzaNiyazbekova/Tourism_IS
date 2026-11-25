@@ -21,6 +21,18 @@ export interface GuideDeparture {
 export interface GuideProfile extends GuideBrief {
   member_since: string; completed_count: number; upcoming_departures: GuideDeparture[];
 }
+export interface GuideMe {
+  id: number; full_name: string; email: string; bio: string; languages: Lang[]; is_active: boolean;
+  upcoming_count: number; completed_count: number; travelers_upcoming: number;
+}
+export interface CabinetDeparture {
+  id: number; package_id: number; package_title: string; destination: string; start_at: string; end_at: string;
+  seats_total: number; seats_available: number; is_active: boolean; bookings_count: number; travelers_count: number;
+}
+export interface CabinetTraveler {
+  booking_ref: string; full_name: string; phone: string; travelers_count: number; status: string; special_request: string;
+}
+export interface CabinetDepartureDetail extends CabinetDeparture { travelers: CabinetTraveler[]; }
 export interface Review { id: number; rating: number; comment: string; author: string; mine: boolean; created_at: string; }
 export interface Tour {
   id: number; title: string; description: string; destination: Destination;

@@ -131,3 +131,15 @@ class TourPhoto(models.Model):
     @property
     def url(self):
         return f"/api/photos/{self.pk}"
+
+
+class Favorite(models.Model):
+    """A tour a tourist saved to look at later ("♡"). Not business data: no audit, removed by the tourist at will."""
+    id = models.AutoField(primary_key=True, db_column="favorite_id")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="favorites", db_index=False)
+    package = models.ForeignKey(TourPackage, on_delete=models.CASCADE, related_name="favorites")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "favorites"
+        constraints = [models.UniqueConstraint(fields=["user", "package"], name="uq_favorites_user_package")]

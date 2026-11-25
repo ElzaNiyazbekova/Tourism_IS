@@ -2,7 +2,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdminDeparture, AdminPhoto, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, GuideProfile, Lang, Page, PackageReport, PayResult, Review, ReviewBooking, TourDetail, Tour } from './models';
+import { CabinetDeparture, CabinetDepartureDetail, GuideMe, AdminDeparture, AdminPhoto, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, GuideProfile, Lang, Page, PackageReport, PayResult, Review, ReviewBooking, TourDetail, Tour } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ToursService {
@@ -30,6 +30,32 @@ export class ToursService {
 
   deleteReview(id: number): Observable<void> {
     return this.http.delete<void>(`/api/reviews/${id}`);
+  }
+}
+
+@Injectable({ providedIn: 'root' })
+export class FavoritesApi {
+  private http = inject(HttpClient);
+
+  list(lang: Lang, page: number): Observable<Page<Tour>> {
+    return this.http.get<Page<Tour>>('/api/favorites', { params: { lang, page } });
+  }
+}
+
+/** Guide cabinet: role "guide" only, own data only. */
+@Injectable({ providedIn: 'root' })
+export class GuideCabinetService {
+  private http = inject(HttpClient);
+
+  me(): Observable<GuideMe> { return this.http.get<GuideMe>('/api/guide/me'); }
+  updateMe(patch: Partial<Pick<GuideMe, 'bio' | 'languages'>>): Observable<GuideMe> {
+    return this.http.patch<GuideMe>('/api/guide/me', patch);
+  }
+  departures(when: 'upcoming' | 'past', lang: Lang, page: number): Observable<Page<CabinetDeparture>> {
+    return this.http.get<Page<CabinetDeparture>>('/api/guide/departures', { params: { when, lang, page } });
+  }
+  departure(id: number, lang: Lang): Observable<CabinetDepartureDetail> {
+    return this.http.get<CabinetDepartureDetail>(`/api/guide/departures/${id}`, { params: { lang } });
   }
 }
 

@@ -13,3 +13,6 @@ a { text-decoration: none; }
                background: rgba(0,0,0,.45); color: #fff; font-size: 1.4rem; line-height: 1; cursor: pointer; }
 .gallery-nav:hover { background: rgba(0,0,0,.65); }
 .admin-photo { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: .35rem .35rem 0 0; display: block; }
+// favourite heart on top of a tour card photo
+.fav-slot { position: absolute; top: .5rem; right: .5rem; z-index: 2; }
+.fav-overlay { width: 2.25rem; height: 2.25rem; line-height: 1; font-size: 1.15rem; padding: 0; }

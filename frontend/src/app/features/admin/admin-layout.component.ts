@@ -15,7 +15,6 @@ import { AuthService } from '../../core/auth.service';
           @if (staff()) {
             <a class="list-group-item list-group-item-action" routerLink="/admin/tours" routerLinkActive="active">{{ 'admin.tours' | translate }}</a>
             <a class="list-group-item list-group-item-action" routerLink="/admin/departures" routerLinkActive="active">{{ 'admin.departures' | translate }}</a>
-            <a class="list-group-item list-group-item-action" routerLink="/admin/bookings-review" routerLinkActive="active">{{ 'admin.bookings_review' | translate }}</a>
             <a class="list-group-item list-group-item-action" routerLink="/admin/dashboard" routerLinkActive="active">{{ 'admin.dashboard' | translate }}</a>
             <a class="list-group-item list-group-item-action" routerLink="/admin/bookings" routerLinkActive="active">{{ 'admin.bookings' | translate }}</a>
           }

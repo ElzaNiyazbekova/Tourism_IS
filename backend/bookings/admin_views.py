@@ -94,9 +94,9 @@ class AdminStatsView(APIView):
         cancelled_expired = qs.filter(status__in=[Booking.CANCELLED, Booking.EXPIRED]).count()
         status_rows = list(qs.values("status").annotate(count=Count("id")).order_by("status"))
         monthly = []
-        month_rows = list(qs.extra(select={"month":"strftime('%%Y-%%m', created_at)"}).values("month").annotate(count=Count("id")).order_by("month"))
+        month_rows = list(qs.values("created_at__year", "created_at__month").annotate(count=Count("id")).order_by("created_at__year", "created_at__month"))
         for row in month_rows[-12:]:
-            monthly.append({"month": row["month"], "count": row["count"]})
+            monthly.append({"month": f"{row['created_at__year']}-{row['created_at__month']:02d}", "count": row["count"]})
         pkg_rows = []
         for row in qs.values("departure__package_id").annotate(revenue=Sum("payments__amount", filter=Q(payments__status=Payment.SUCCESS))).order_by("-revenue")[:5]:
             pkg_id = row["departure__package_id"]

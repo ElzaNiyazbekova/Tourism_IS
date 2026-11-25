@@ -1,4 +1,4 @@
-// Route guards = convenience only. The REAL protection is server-side (DRF permission classes).
+/** Route guards = convenience only. */
 import { inject } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { filter, map, take } from 'rxjs';
@@ -22,3 +22,6 @@ export const roleGuard = (...roles: string[]): CanActivateFn => (_route, state) 
   if (auth.sessionReady()) return decide();
   return toObservable(auth.sessionReady).pipe(filter(Boolean), take(1), map(decide));
 };
+
+/** Admin guard: a convenience guard for common case of admin-only routes. */
+export const adminDefaultGuard = () => roleGuard('admin');

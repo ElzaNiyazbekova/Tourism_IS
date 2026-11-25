@@ -2,7 +2,8 @@
 Public catalogue endpoints (no login needed).   Owner: Aitore (Application & Development)
 
 GET /api/destinations
-GET /api/tours?destination=&price_min=&price_max=&date_from=&date_to=&guide_lang=&ordering=&lang=
+GET /api/tours?q=&destination=&price_min=&price_max=&duration_min=&duration_max=&date_from=&date_to=&guide_lang=
+               &accommodation=1&transport=1&rating_min=&available=1&ordering=&lang=
 GET /api/tours/<id>?lang=
 GET /api/guides/<id>?lang=          public guide profile (no email/phone)
 """
@@ -20,7 +21,7 @@ from core.lang import request_lang
 
 from accounts.models import Guide
 
-from .models import Departure, Destination, Review, TourPackage, TourPhoto
+from .models import Departure, Destination, PackageTranslation, Review, TourPackage, TourPhoto
 from .serializers import DestinationSerializer, GuideProfileSerializer, TourDetailSerializer, TourListSerializer
 
 ORDERINGS = {          # whitelist: never pass user input straight to order_by()
@@ -54,6 +55,19 @@ def _parse_decimal(request, name):
         return float(raw)
     except ValueError:
         raise _bad_param(name)
+
+
+def _parse_int(request, name, lo=0, hi=10_000):
+    raw = request.query_params.get(name)
+    if not raw:
+        return None
+    if not raw.isdigit() or not lo <= int(raw) <= hi:
+        raise _bad_param(name)
+    return int(raw)
+
+
+def _flag(request, name):
+    return request.query_params.get(name, "").lower() in ("1", "true", "yes")
 
 
 def base_tour_queryset():
@@ -91,8 +105,12 @@ class TourListView(generics.ListAPIView):
         return {**super().get_serializer_context(), "lang": request_lang(self.request)}
 
     @extend_schema(parameters=[OpenApiParameter(n, str, description=d) for n, d in [
+        ("q", "text search in title/description (any language)"),
         ("destination", "destination id"), ("price_min", "min base price"), ("price_max", "max base price"),
         ("date_from", "YYYY-MM-DD: has a departure on/after"), ("date_to", "YYYY-MM-DD: has a departure on/before"),
+        ("duration_min", "min days"), ("duration_max", "max days"),
+        ("accommodation", "1: accommodation included"), ("transport", "1: transport included"),
+        ("rating_min", "1-5: average rating at least"), ("available", "1: has an upcoming departure with free seats"),
         ("guide_lang", "en|ru|kk: guide speaks it"), ("ordering", "price|-price|duration|-duration|next|rating"),
         ("lang", "en|ru|kk: language of title/description")]])
     def get(self, request, *args, **kwargs):
@@ -101,6 +119,12 @@ class TourListView(generics.ListAPIView):
     def get_queryset(self):
         p = self.request.query_params
         qs = base_tour_queryset()
+
+        search = p.get("q", "").strip()[:100]
+        if search:   # Exists sub-query: a match in several languages must not duplicate the tour
+            matches = PackageTranslation.objects.filter(package=OuterRef("pk")).filter(
+                Q(title__icontains=search) | Q(description__icontains=search))
+            qs = qs.filter(Q(Exists(matches)) | Q(destination__name__icontains=search))
 
         if p.get("destination"):
             if not p["destination"].isdigit():
@@ -111,6 +135,22 @@ class TourListView(generics.ListAPIView):
             qs = qs.filter(base_price__gte=price_min)
         if price_max is not None:
             qs = qs.filter(base_price__lte=price_max)
+        duration_min, duration_max = _parse_int(self.request, "duration_min"), _parse_int(self.request, "duration_max")
+        if duration_min is not None:
+            qs = qs.filter(duration_days__gte=duration_min)
+        if duration_max is not None:
+            qs = qs.filter(duration_days__lte=duration_max)
+        if _flag(self.request, "accommodation"):
+            qs = qs.filter(accommodation_included=True)
+        if _flag(self.request, "transport"):
+            qs = qs.filter(transport_included=True)
+        rating_min = _parse_decimal(self.request, "rating_min")
+        if rating_min is not None:
+            if not 1 <= rating_min <= 5:
+                raise _bad_param("rating_min")
+            qs = qs.filter(avg_rating__gte=rating_min)
+        if _flag(self.request, "available"):
+            qs = qs.filter(next_departure_at__isnull=False)   # annotation = next future departure with free seats
 
         # date / guide-language filters look at the package's FUTURE departures
         date_from, date_to, guide_lang = _parse_date(self.request, "date_from"), _parse_date(self.request, "date_to"), p.get("guide_lang")

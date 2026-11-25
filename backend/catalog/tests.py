@@ -244,3 +244,52 @@ class GuideProfileTests(TestCase):
         self.guide.save()
         self.assertEqual(client_for().get(f"/api/guides/{self.guide.pk}").status_code, 404)
         self.assertEqual(client_for().get("/api/guides/999999").status_code, 404)
+
+
+class TourFilterTests(TestCase):
+    """Public catalogue filters: search, duration, included services, rating, free seats, dates, guide language."""
+
+    def setUp(self):
+        from catalog.models import PackageTranslation, Review
+        self.city = make_package("Almaty City Tour", price=15000, days=1)
+        PackageTranslation.objects.create(package=self.city, language_code="ru", title="Обзорный тур по Алматы", description="город")
+        self.lake = make_package("Kolsai Lakes", price=60000, days=3, destination=make_destination("Kolsai"))
+        TourPackage.objects.filter(pk=self.lake.pk).update(accommodation_included=True, transport_included=True)
+        self.canyon = make_package("Charyn Canyon", price=30000, days=2, destination=make_destination("Charyn"))
+        make_departure(self.city, guide=make_guide("ru"), start_in_days=5)
+        make_departure(self.lake, guide=make_guide("en,kk"), start_in_days=20)
+        full = make_departure(self.canyon, start_in_days=7)
+        Departure.objects.filter(pk=full.pk).update(seats_available=0)
+        Review.objects.create(user=make_user("tourist"), package=self.lake, rating=5)
+        Review.objects.create(user=make_user("tourist"), package=self.canyon, rating=3)
+
+    def ids(self, query):
+        r = client_for().get("/api/tours?" + query)
+        self.assertEqual(r.status_code, 200, r.content)
+        return sorted(t["id"] for t in r.data["results"])
+
+    def test_F1_text_search_any_language_and_destination(self):
+        self.assertEqual(self.ids("q=canyon"), [self.canyon.pk])
+        self.assertEqual(self.ids("q=тур по"), [self.city.pk])         # Russian title, no duplicates
+        self.assertEqual(self.ids("q=kolsai"), [self.lake.pk])          # destination name
+        self.assertEqual(self.ids("q=nothing-like-this"), [])
+
+    def test_F2_duration_and_included_services(self):
+        self.assertEqual(self.ids("duration_min=2"), sorted([self.lake.pk, self.canyon.pk]))
+        self.assertEqual(self.ids("duration_max=2"), sorted([self.city.pk, self.canyon.pk]))
+        self.assertEqual(self.ids("accommodation=1&transport=1"), [self.lake.pk])
+
+    def test_F3_rating_and_free_seats(self):
+        self.assertEqual(self.ids("rating_min=4"), [self.lake.pk])
+        self.assertEqual(self.ids("available=1"), sorted([self.city.pk, self.lake.pk]))
+
+    def test_F4_dates_and_guide_language(self):
+        day = lambda n: (timezone.now() + timedelta(days=n)).strftime("%Y-%m-%d")
+        self.assertEqual(self.ids(f"date_from={day(15)}"), [self.lake.pk])
+        self.assertEqual(self.ids(f"date_to={day(6)}"), [self.city.pk])
+        self.assertEqual(self.ids("guide_lang=kk"), [self.lake.pk])
+
+    def test_F5_bad_values_give_400(self):
+        for q in ("duration_min=abc", "duration_max=-1", "rating_min=9", "rating_min=x", "date_from=2026-13-40"):
+            r = client_for().get("/api/tours?" + q)
+            self.assertEqual(r.status_code, 400, q)

@@ -1,5 +1,6 @@
 // Tour catalogue with filters + pagination; loading / empty / error states.  Owner: Aitore
-import { Component, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -15,33 +16,103 @@ import { AppDatePipe, AppMoneyPipe } from '../../core/pipes';
     <h1 class="h3 mb-1">{{ 'tours.title' | translate }}</h1>
     <p class="text-muted">{{ 'tours.subtitle' | translate }}</p>
 
-    <form class="row g-2 align-items-end mb-4" [formGroup]="filters" (ngSubmit)="apply()">
-      <div class="col-md-3">
-        <label class="form-label small" for="f-dest">{{ 'tours.destination' | translate }}</label>
-        <select id="f-dest" class="form-select" formControlName="destination">
-          <option value="">{{ 'tours.all_destinations' | translate }}</option>
-          @for (d of destinations(); track d.id) { <option [value]="d.id">{{ d.name }}</option> }
-        </select>
+    <form class="card card-body mb-4" [formGroup]="filters" (ngSubmit)="apply()">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label small" for="f-q">{{ 'tours.search' | translate }}</label>
+          <input id="f-q" type="search" class="form-control" formControlName="q" maxlength="100"
+                 [placeholder]="'tours.search_placeholder' | translate">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small" for="f-dest">{{ 'tours.destination' | translate }}</label>
+          <select id="f-dest" class="form-select" formControlName="destination">
+            <option value="">{{ 'tours.all_destinations' | translate }}</option>
+            @for (d of destinations(); track d.id) { <option [value]="d.id">{{ d.name }}</option> }
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small" for="f-ord">{{ 'tours.sort' | translate }}</label>
+          <select id="f-ord" class="form-select" formControlName="ordering">
+            <option value="">{{ 'tours.sort_default' | translate }}</option>
+            <option value="price">{{ 'tours.sort_price_asc' | translate }}</option>
+            <option value="-price">{{ 'tours.sort_price_desc' | translate }}</option>
+            <option value="next">{{ 'tours.sort_soonest' | translate }}</option>
+            <option value="rating">{{ 'tours.sort_rating' | translate }}</option>
+            <option value="duration">{{ 'tours.sort_duration_asc' | translate }}</option>
+            <option value="-duration">{{ 'tours.sort_duration_desc' | translate }}</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-grid"><button class="btn btn-primary" type="submit">{{ 'tours.apply' | translate }}</button></div>
       </div>
-      <div class="col-md-2">
-        <label class="form-label small" for="f-min">{{ 'tours.price_min' | translate }}</label>
-        <input id="f-min" type="number" min="0" class="form-control" formControlName="price_min">
+
+      @if (showMore()) {
+        <div class="row g-2 align-items-end mt-1">
+          <div class="col-6 col-md-3">
+            <label class="form-label small" for="f-min">{{ 'tours.price_min' | translate }}</label>
+            <input id="f-min" type="number" min="0" class="form-control" formControlName="price_min">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small" for="f-max">{{ 'tours.price_max' | translate }}</label>
+            <input id="f-max" type="number" min="0" class="form-control" formControlName="price_max">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small" for="f-dmin">{{ 'tours.duration_min' | translate }}</label>
+            <input id="f-dmin" type="number" min="1" step="1" class="form-control" formControlName="duration_min">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small" for="f-dmax">{{ 'tours.duration_max' | translate }}</label>
+            <input id="f-dmax" type="number" min="1" step="1" class="form-control" formControlName="duration_max">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small" for="f-from">{{ 'tours.date_from' | translate }}</label>
+            <input id="f-from" type="date" class="form-control" formControlName="date_from" [min]="today">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small" for="f-to">{{ 'tours.date_to' | translate }}</label>
+            <input id="f-to" type="date" class="form-control" formControlName="date_to" [min]="filters.controls.date_from.value || today">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small" for="f-glang">{{ 'tours.guide_lang' | translate }}</label>
+            <select id="f-glang" class="form-select" formControlName="guide_lang">
+              <option value="">{{ 'tours.any_language' | translate }}</option>
+              <option value="kk">{{ 'tours.lang_kk' | translate }}</option>
+              <option value="ru">{{ 'tours.lang_ru' | translate }}</option>
+              <option value="en">{{ 'tours.lang_en' | translate }}</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small" for="f-rating">{{ 'tours.rating_min' | translate }}</label>
+            <select id="f-rating" class="form-select" formControlName="rating_min">
+              <option value="">{{ 'tours.any_rating' | translate }}</option>
+              @for (r of [4.5, 4, 3]; track r) { <option [value]="r">{{ 'tours.rating_at_least' | translate: { value: r } }}</option> }
+            </select>
+          </div>
+          <div class="col-12 d-flex flex-wrap gap-3 mt-2">
+            <div class="form-check">
+              <input id="f-avail" type="checkbox" class="form-check-input" formControlName="available">
+              <label class="form-check-label" for="f-avail">{{ 'tours.only_available' | translate }}</label>
+            </div>
+            <div class="form-check">
+              <input id="f-acc" type="checkbox" class="form-check-input" formControlName="accommodation">
+              <label class="form-check-label" for="f-acc">{{ 'tours.need_accommodation' | translate }}</label>
+            </div>
+            <div class="form-check">
+              <input id="f-tr" type="checkbox" class="form-check-input" formControlName="transport">
+              <label class="form-check-label" for="f-tr">{{ 'tours.need_transport' | translate }}</label>
+            </div>
+          </div>
+        </div>
+      }
+
+      <div class="d-flex gap-3 mt-2 small">
+        <button type="button" class="btn btn-link btn-sm p-0" (click)="showMore.set(!showMore())" [attr.aria-expanded]="showMore()">
+          {{ (showMore() ? 'tours.less_filters' : 'tours.more_filters') | translate }}
+          @if (!showMore() && extraCount()) { <span class="badge text-bg-primary ms-1">{{ extraCount() }}</span> }
+        </button>
+        @if (activeCount()) {
+          <button type="button" class="btn btn-link btn-sm p-0 text-secondary" (click)="reset()">{{ 'tours.reset' | translate }}</button>
+        }
       </div>
-      <div class="col-md-2">
-        <label class="form-label small" for="f-max">{{ 'tours.price_max' | translate }}</label>
-        <input id="f-max" type="number" min="0" class="form-control" formControlName="price_max">
-      </div>
-      <div class="col-md-3">
-        <label class="form-label small" for="f-ord">{{ 'tours.sort' | translate }}</label>
-        <select id="f-ord" class="form-select" formControlName="ordering">
-          <option value="">{{ 'tours.sort_default' | translate }}</option>
-          <option value="price">{{ 'tours.sort_price_asc' | translate }}</option>
-          <option value="-price">{{ 'tours.sort_price_desc' | translate }}</option>
-          <option value="next">{{ 'tours.sort_soonest' | translate }}</option>
-          <option value="rating">{{ 'tours.sort_rating' | translate }}</option>
-        </select>
-      </div>
-      <div class="col-md-2 d-grid"><button class="btn btn-primary" type="submit">{{ 'tours.apply' | translate }}</button></div>
     </form>
 
     @if (loading()) {
@@ -107,7 +178,19 @@ export class TourListComponent {
   pageNo = signal(1);
   loading = signal(true);
   failed = signal(false);
-  filters = this.fb.nonNullable.group({ destination: '', price_min: '', price_max: '', ordering: '' });
+  showMore = signal(false);
+  today = new Date().toISOString().slice(0, 10);
+  filters = this.fb.nonNullable.group({
+    q: '', destination: '', ordering: '',
+    price_min: '', price_max: '', duration_min: '', duration_max: '', date_from: '', date_to: '',
+    guide_lang: '', rating_min: '', available: false, accommodation: false, transport: false,
+  });
+  private static readonly MAIN = ['q', 'destination', 'ordering'];
+  private formValue = toSignal(this.filters.valueChanges, { initialValue: this.filters.getRawValue() });
+  /** how many filters are set (main row + hidden panel) - drives the badge and the Reset link */
+  private setKeys = computed(() => Object.entries(this.formValue()).filter(([, v]) => v !== '' && v !== false && v != null).map(([k]) => k));
+  activeCount = computed(() => this.setKeys().length);
+  extraCount = computed(() => this.setKeys().filter(k => !TourListComponent.MAIN.includes(k)).length);
 
   constructor() {
     this.tours.destinations().subscribe({ next: p => this.destinations.set(p.results), error: () => {} });
@@ -116,12 +199,23 @@ export class TourListComponent {
   }
 
   apply(): void { this.pageNo.set(1); this.load(); }
+  reset(): void { this.filters.reset(); this.apply(); }
+
+  /** form value -> query params: checkboxes become "1", unset fields are dropped */
+  private params(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(this.filters.getRawValue())) {
+      if (v === true) out[k] = '1';
+      else if (v !== false && v !== '' && v != null) out[k] = String(v).trim();
+    }
+    return out;
+  }
   go(n: number): void { this.pageNo.set(n); this.load(); }
 
   load(): void {
     this.loading.set(true);
     this.failed.set(false);
-    this.tours.list(this.filters.getRawValue(), this.language.lang(), this.pageNo()).subscribe({
+    this.tours.list(this.params(), this.language.lang(), this.pageNo()).subscribe({
       next: p => { this.page.set(p); this.loading.set(false); },
       error: () => { this.failed.set(true); this.loading.set(false); },
     });

@@ -121,3 +121,10 @@ In Phase 1 these were never created because the hook that creates them did not f
 | Constraints | `psql -d <db> -f db/verify_constraints.sql` (run on an empty migrated database or after `db/create_tables.sql`) | last line `22 PASS, 0 FAIL` |
 
 The Django admin site (`/admin/` of Django) was removed on purpose: the spec forbids the default admin UI and the path belongs to the Angular admin.
+
+## 10. Testing-week admin commands and endpoints
+- `python manage.py expire_pending` — expires unpaid Pending bookings and returns held seats.
+- `python manage.py find_duplicates [--fix]` — lists duplicate active/completed pairs and optionally cancels losers.
+- `python manage.py permission_matrix` — prints server role permissions.
+- `GET /api/admin/bookings`, `/api/admin/stats`, `/api/admin/report/export?format=csv&lang=en` — manager/admin data and CSV.
+- `GET /api/analytics/export` — aggregate-only analyst CSV.

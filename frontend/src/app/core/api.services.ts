@@ -2,7 +2,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { CabinetDeparture, CabinetDepartureDetail, GuideMe, AdminDeparture, AdminPhoto, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, GuideProfile, Lang, Page, PackageReport, PayResult, Review, ReviewBooking, TourDetail, Tour } from './models';
+import { CabinetDeparture, CabinetDepartureDetail, GuideMe, AdminDeparture, AdminPhoto, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, GuideProfile, Lang, Page, PackageReport, PayResult, AdminBookingRow, AdminStats, Review, ReviewBooking, TourDetail, Tour } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ToursService {
@@ -126,12 +126,16 @@ export class AdminService {
   rejectReviewBooking(id: number, lang: Lang): Observable<ReviewBooking> {
     return this.http.post<ReviewBooking>(`/api/admin/bookings/${id}/reject`, {}, { params: { lang } });
   }
+  adminBookings(params: Record<string,string|number|undefined>): Observable<Page<AdminBookingRow>> { let p=new HttpParams(); for(const [k,v] of Object.entries(params)) if(v!==undefined&&v!=='') p=p.set(k,String(v)); return this.http.get<Page<AdminBookingRow>>('/api/admin/bookings',{params:p}); }
+  adminStats(params: Record<string,string|undefined>): Observable<AdminStats> { let p=new HttpParams(); for(const [k,v] of Object.entries(params)) if(v) p=p.set(k,v); return this.http.get<AdminStats>('/api/admin/stats',{params:p}); }
+  reportCsv(params: Record<string,string|undefined>): Observable<Blob> { let p=new HttpParams().set('format','csv'); for(const [k,v] of Object.entries(params)) if(v) p=p.set(k,v); return this.http.get('/api/admin/report/export',{params:p,responseType:'blob'}); }
 }
 
 @Injectable({ providedIn: 'root' })
 export class AnalyticsService {
   private http = inject(HttpClient);
   packages(lang: Lang): Observable<PackageReport> { return this.http.get<PackageReport>('/api/analytics/packages', { params: { lang } }); }
+  export(lang: Lang): Observable<Blob> { return this.http.get('/api/analytics/export',{params:{lang},responseType:'blob'}); }
 }
 
 @Injectable({ providedIn: 'root' })

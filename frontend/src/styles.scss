@@ -16,3 +16,9 @@ a { text-decoration: none; }
 // favourite heart on top of a tour card photo
 .fav-slot { position: absolute; top: .5rem; right: .5rem; z-index: 2; }
 .fav-overlay { width: 2.25rem; height: 2.25rem; line-height: 1; font-size: 1.15rem; padding: 0; }
+
+@media print {
+  .admin-sidebar, .admin-controls {
+    display: none !important;
+  }
+}

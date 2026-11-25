@@ -9,11 +9,14 @@ Same numbers as the SQL view analyst_booking_view:
 Packages with zero bookings still appear with 0 (like the LEFT JOIN query in db/analytics.sql).
 """
 from decimal import Decimal
+import csv
 
 from django.db.models import Count, Sum
+from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.utils import timezone
 
 from catalog.models import TourPackage
 from core.lang import pick_translation, request_lang
@@ -59,3 +62,20 @@ class PackageReportView(APIView):
     @extend_schema(responses={200: dict})
     def get(self, request):
         return Response(package_report(request_lang(request)))
+
+
+class AnalystExportView(APIView):
+    """Analyst CSV: per-package aggregates only, never personal fields."""
+    permission_classes = [role_required("analyst", "manager", "admin")]
+
+    @extend_schema(responses={200: {"type":"string","format":"binary"}})
+    def get(self, request):
+        report = package_report(request_lang(request))
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="analytics_{timezone.localdate().isoformat()}.csv"'
+        response.write("\ufeff")
+        w = csv.writer(response)
+        w.writerow(["package_id","title","destination","is_active","active_bookings","completed_bookings","cancelled_bookings","revenue"])
+        for r in report["packages"]:
+            w.writerow([r["package_id"],r["title"],r["destination"],r["is_active"],r["active_bookings"],r["completed_bookings"],r["cancelled_bookings"],r["revenue"]])
+        return response

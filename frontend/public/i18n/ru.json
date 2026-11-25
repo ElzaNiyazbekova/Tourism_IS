@@ -24,7 +24,9 @@
     "prev": "Назад",
     "next": "Далее",
     "page": "Страница {{page}}",
-    "days": "{{count}} дн."
+    "days": "{{count}} дн.",
+    "filter": "Фильтр",
+    "empty": "Нет данных"
   },
   "tours": {
     "title": "Экскурсии с гидами",
@@ -123,7 +125,7 @@
     "confirmed": "Подтверждено",
     "cancelled": "Отменено",
     "completed": "Завершено",
-    "needs_review": "На проверке"
+    "expired": "Просрочено"
   },
   "auth": {
     "login_title": "Вход",
@@ -225,7 +227,7 @@
     "status_pending": "В ожидании"
   },
   "admin": {
-    "title": "Управление",
+    "title": "Администрирование",
     "tours": "Туры",
     "departures": "Вылеты",
     "bookings_review": "Брони на проверке",
@@ -312,7 +314,26 @@
     "photo_right": "Сдвинуть вправо",
     "photo_delete": "Удалить фото",
     "photo_delete_yes": "Удалить?",
-    "photos_save_first": "Сначала сохраните тур, потом можно будет добавить фото."
+    "photos_save_first": "Сначала сохраните тур, потом можно будет добавить фото.",
+    "dashboard": "Панель",
+    "bookings": "Бронирования",
+    "search": "Поиск",
+    "all_statuses": "Все статусы",
+    "download_csv": "Скачать CSV",
+    "print_pdf": "Печать / Сохранить PDF",
+    "booking_ref": "Номер брони",
+    "tourist": "Турист",
+    "travel_date": "Дата поездки",
+    "travelers": "Туристы",
+    "total": "Сумма",
+    "status": "Статус",
+    "kpi_bookings": "Бронирования",
+    "kpi_revenue": "Выручка",
+    "kpi_average": "Средняя сумма",
+    "kpi_cancel_exp": "Доля отмен/истечений",
+    "chart_monthly": "Бронирования по месяцам",
+    "chart_status": "Бронирования по статусам",
+    "chart_packages": "Топ туров по выручке"
   },
   "flex": {
     "title": "Управление поездками",
@@ -444,5 +465,6 @@
     "add": "В избранное",
     "remove": "Убрать из избранного",
     "saved": "В избранном"
-  }
+  },
+  "dashboard": "Панель"
 }

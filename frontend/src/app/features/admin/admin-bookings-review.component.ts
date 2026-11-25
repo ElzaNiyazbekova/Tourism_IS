@@ -33,14 +33,14 @@ interface Flash { kind: 'success' | 'danger'; text: string; }
           <div class="card-body">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
               <div>
-                <h2 class="h6 mb-1">{{ b.booking_ref }} · {{ b.package_title }}</h2>
-                <div class="small text-muted">{{ b.customer_name }} · <a [href]="'mailto:' + b.customer_email">{{ b.customer_email }}</a></div>
+                <h2 class="h6 mb-1">{{ b.booking_ref }} Â· {{ b.package_title }}</h2>
+                <div class="small text-muted">{{ b.customer_name }} Â· <a [href]="'mailto:' + b.customer_email">{{ b.customer_email }}</a></div>
               </div>
               <div class="d-flex gap-1 flex-wrap">
                 @if (scenario(b); as demoScenario) {
                   <span class="badge text-bg-info">{{ ('admin.review.scenario.' + demoScenario) | translate }}</span>
                 }
-                <span class="badge text-bg-danger">{{ 'status.needs_review' | translate }}</span>
+                <span class="badge text-bg-danger">{{ 'status.expired' | translate }}</span>
               </div>
             </div>
             <div class="row small mt-3 g-2">
@@ -54,7 +54,7 @@ interface Flash { kind: 'success' | 'danger'; text: string; }
               <strong>{{ 'admin.review.payments' | translate }}:</strong>
               @if (b.payments.length) {
                 @for (payment of b.payments; track payment.id) {
-                  <span class="badge text-bg-light border ms-1">{{ payment.status }} · {{ payment.amount | appMoney }} · {{ payment.transaction_ref }}</span>
+                  <span class="badge text-bg-light border ms-1">{{ payment.status }} Â· {{ payment.amount | appMoney }} Â· {{ payment.transaction_ref }}</span>
                 }
               } @else { <span class="text-muted">{{ 'admin.review.no_payments' | translate }}</span> }
             </div>
@@ -65,7 +65,7 @@ interface Flash { kind: 'success' | 'danger'; text: string; }
                   <select class="form-select form-select-sm" [value]="mergeTargets()[b.id] || ''" (change)="setMergeTarget(b.id, $event)" [attr.aria-label]="'admin.review.merge_target' | translate">
                     <option value="">{{ 'admin.review.merge_target' | translate }}</option>
                     @for (candidate of mergeCandidates(b); track candidate.id) {
-                      <option [value]="candidate.id">{{ candidate.booking_ref }} · {{ candidate.customer_name }}</option>
+                      <option [value]="candidate.id">{{ candidate.booking_ref }} Â· {{ candidate.customer_name }}</option>
                     }
                   </select>
                   <button class="btn btn-outline-primary btn-sm text-nowrap" [disabled]="busy() === b.id || !mergeTargets()[b.id]" (click)="merge(b)">{{ 'admin.review.merge' | translate }}</button>
@@ -119,7 +119,7 @@ export class AdminBookingsReviewComponent {
   mergeCandidates(booking: ReviewBooking): ReviewBooking[] {
     return (this.page()?.results ?? []).filter(candidate => candidate.id !== booking.id
       && candidate.departure_id === booking.departure_id && candidate.customer_email === booking.customer_email
-      && candidate.status === 'Needs review');
+      && candidate.status === 'Expired');
   }
 
   scenario(booking: ReviewBooking): string | null {

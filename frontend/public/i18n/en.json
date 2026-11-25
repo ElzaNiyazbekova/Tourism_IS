@@ -24,7 +24,9 @@
     "prev": "Previous",
     "next": "Next",
     "page": "Page {{page}}",
-    "days": "{{count}} day(s)"
+    "days": "{{count}} day(s)",
+    "filter": "Filter",
+    "empty": "No data"
   },
   "tours": {
     "title": "Guided tours",
@@ -123,7 +125,7 @@
     "confirmed": "Confirmed",
     "cancelled": "Cancelled",
     "completed": "Completed",
-    "needs_review": "Expired"
+    "expired": "Expired"
   },
   "auth": {
     "login_title": "Log in",
@@ -312,7 +314,26 @@
     "photo_right": "Move right",
     "photo_delete": "Delete photo",
     "photo_delete_yes": "Delete?",
-    "photos_save_first": "Save the tour first, then you can add photos."
+    "photos_save_first": "Save the tour first, then you can add photos.",
+    "dashboard": "Dashboard",
+    "bookings": "Bookings",
+    "search": "Search",
+    "all_statuses": "All statuses",
+    "download_csv": "Download CSV",
+    "print_pdf": "Print / Save as PDF",
+    "booking_ref": "Booking ref",
+    "tourist": "Tourist",
+    "travel_date": "Travel date",
+    "travelers": "Travelers",
+    "total": "Total",
+    "status": "Status",
+    "kpi_bookings": "Bookings",
+    "kpi_revenue": "Revenue",
+    "kpi_average": "Average value",
+    "kpi_cancel_exp": "Cancellation / expiry rate",
+    "chart_monthly": "Bookings per month",
+    "chart_status": "Bookings by status",
+    "chart_packages": "Top packages by revenue"
   },
   "flex": {
     "title": "Manage my trips",
@@ -444,5 +465,6 @@
     "add": "Save to favourites",
     "remove": "Remove from favourites",
     "saved": "Saved"
-  }
+  },
+  "dashboard": "Dashboard"
 }

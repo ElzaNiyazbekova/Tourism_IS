@@ -251,3 +251,34 @@ class ExpiredBookingTests(TestCase):
                 Booking.objects.create(booking_ref="BK-XBAD", user=make_user("tourist"), departure=self.dep,
                     booking_date=timezone.localdate(), travel_date=timezone.localdate(), travelers_count=1,
                     total_cost=0, status="Needs review")
+
+
+class AdminBackendTests(TestCase):
+    def setUp(self):
+        self.manager=make_user("manager"); self.admin=make_user("admin"); self.analyst=make_user("analyst")
+        self.dep=make_departure(seats=10); self.tourist=make_user("tourist")
+        self.b1=Booking.objects.get(pk=book(client_for(self.tourist),self.dep,1).data["id"])
+
+    def test_admin_list_and_roles(self):
+        c=client_for(self.manager)
+        r=c.get("/api/admin/bookings"); self.assertEqual(r.status_code,200); self.assertEqual(len(r.data["results"]),1)
+        self.assertEqual(client_for(self.analyst).get("/api/admin/bookings").status_code,403)
+        self.assertEqual(client_for(self.tourist).get("/api/admin/bookings").status_code,403)
+        self.assertEqual(client_for().get("/api/admin/bookings").status_code,401)
+
+    def test_cancelled_and_expired_hidden_by_default(self):
+        Booking.objects.filter(pk=self.b1.pk).update(status=Booking.EXPIRED)
+        r=client_for(self.admin).get("/api/admin/bookings")
+        self.assertEqual(r.data["count"],0)
+        r=client_for(self.admin).get("/api/admin/bookings?include_cancelled=true")
+        self.assertGreaterEqual(r.data["count"],1)
+
+    def test_stats_and_exports(self):
+        r=client_for(self.admin).get("/api/admin/stats"); self.assertEqual(r.status_code,200)
+        self.assertEqual(r.data["totals"]["bookings"],1)
+        r=client_for(self.admin).get("/api/admin/report/export?format=csv&lang=en")
+        self.assertIn("Content-Disposition",r); self.assertTrue(r.content.startswith(b"\xef\xbb\xbf"))
+        self.assertTrue(AuditLog.objects.filter(action="report_export").exists())
+        r=client_for(self.analyst).get("/api/analytics/export?lang=en")
+        self.assertEqual(r.status_code,200); text=r.content.decode("utf-8-sig").lower()
+        self.assertNotIn("@example.com",text); self.assertNotIn("tourist_email",text)

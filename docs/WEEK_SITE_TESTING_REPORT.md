@@ -60,7 +60,7 @@ Manager/admin получают CSV через `/api/admin/report/export?lang=...
 - `python manage.py find_duplicates`: `No duplicates found`.
 - `python manage.py expire_pending`: `Expired 0 booking(s)`.
 
-**Ограничения:** tourist не отменяет бронирование в этой версии, возврат денег не смоделирован, mock payment остаётся без реальных денег, Docker Compose не запускался в этой сессии, а один отдельно найденный audit date-filter test требует дополнительной проверки окружения.
+**Ограничения:** tourist не отменяет бронирование в этой версии, возврат денег не смоделирован, mock payment остаётся без реальных денег, Docker Compose не запускался в этой сессии.
 
 ## 9. Сценарий показа преподавателю
 1. Запустить `docker compose up --build`, открыть `http://localhost:4200`; сказать, что JWT-сессия передаётся в header. Ожидание: demo-сайт доступен.

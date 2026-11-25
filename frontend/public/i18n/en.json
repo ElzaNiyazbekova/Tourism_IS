@@ -382,7 +382,6 @@
       "payment_failed": "Payment failed",
       "confirmed": "Payment received, booking confirmed",
       "completed": "Tour completed",
-      "needs_review": "Sent to staff for review",
       "status_changed": "Status changed",
       "cancelled": "Booking cancelled",
       "cancel_undone": "Cancellation undone",

@@ -22,7 +22,7 @@ export interface IncomingHandover {
   start_at: string; travelers_count: number; total_cost: string; booking_status: string; expires_at: string;
 }
 export type TimelineKind =
-  'created' | 'payment_failed' | 'confirmed' | 'completed' | 'needs_review' | 'status_changed' | 'cancelled' |
+  'created' | 'payment_failed' | 'confirmed' | 'completed' | 'status_changed' | 'cancelled' |
   'cancel_undone' | 'expired' | 'handover_offered' | 'handed_over' | 'handover_declined' | 'handover_withdrawn' |
   'handover_expired' | 'other';
 export interface TimelineEvent { at: string; kind: TimelineKind; by: 'you' | 'system' | 'staff' | 'other'; details: Record<string, unknown>; }

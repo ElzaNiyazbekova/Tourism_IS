@@ -2,7 +2,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { AdminDeparture, AdminPhoto, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, GuideProfile, Lang, Page, PackageReport, PayResult, ReviewBooking, TourDetail, Tour } from './models';
+import { AdminDeparture, AdminPhoto, AuditEntry, AuditFacets, AdminGuide, AdminTour, Booking, BookingDetail, Destination, GuideProfile, Lang, Page, PackageReport, PayResult, Review, ReviewBooking, TourDetail, Tour } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ToursService {
@@ -22,6 +22,14 @@ export class ToursService {
 
   guide(id: number, lang: Lang): Observable<GuideProfile> {
     return this.http.get<GuideProfile>(`/api/guides/${id}`, { params: { lang } });
+  }
+
+  review(id: number, rating: number, comment: string): Observable<Review> {
+    return this.http.post<Review>(`/api/tours/${id}/reviews`, { rating, comment });
+  }
+
+  deleteReview(id: number): Observable<void> {
+    return this.http.delete<void>(`/api/reviews/${id}`);
   }
 }
 

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics, serializers
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from core.exceptions import ApiError
@@ -30,6 +31,11 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = ["id", "created_at", "action", "table_name", "record_id", "user", "old_value", "new_value"]
+
+
+class AuditLogPagination(PageNumberPagination):
+    page_size = 12
+    max_page_size = 12
 
 
 def _bad(name):
@@ -59,6 +65,7 @@ def _date(request, name):
 class AuditLogListView(generics.ListAPIView):
     permission_classes = [role_required("admin")]
     serializer_class = AuditLogSerializer
+    pagination_class = AuditLogPagination
 
     @extend_schema(parameters=[OpenApiParameter(n, str, description=d) for n, d in [
         ("table", "table name, e.g. bookings"), ("action", "create|update|activate|deactivate|status_change|..."),

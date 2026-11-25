@@ -37,13 +37,35 @@ class DepartureSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.SerializerMethodField()
+    mine = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
-        fields = ["id", "rating", "comment", "author", "created_at"]
+        fields = ["id", "rating", "comment", "author", "mine", "created_at"]
 
     def get_author(self, obj):
         return obj.user.full_name.split(" ")[0]    # first name only
+
+    def get_mine(self, obj):
+        request = self.context.get("request")
+        return bool(request and request.user.is_authenticated and obj.user_id == request.user.pk)
+
+
+class ReviewCreateSerializer(serializers.Serializer):
+    package = serializers.IntegerField(min_value=1, required=False)
+    package_id = serializers.IntegerField(min_value=1, required=False)
+    tour = serializers.IntegerField(min_value=1, required=False)
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    comment = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+    def validate(self, attrs):
+        ids = [attrs.get(name) for name in ("package", "package_id", "tour") if attrs.get(name) is not None]
+        if not ids:
+            raise serializers.ValidationError({"package": ["This field is required."]})
+        if len(set(ids)) > 1:
+            raise serializers.ValidationError({"package": ["Package identifiers do not match."]})
+        attrs["package"] = ids[0]
+        return attrs
 
 
 class PublicPhotoSerializer(serializers.ModelSerializer):
@@ -104,7 +126,11 @@ class TourDetailSerializer(TourListSerializer):
         return DepartureSerializer(deps, many=True).data
 
     def get_reviews(self, obj):
-        return ReviewSerializer(obj.recent_reviews, many=True).data   # set by the view via Prefetch(to_attr=...)
+        return ReviewSerializer(
+            obj.recent_reviews,
+            many=True,
+            context=self.context,
+        ).data   # set by the view via Prefetch(to_attr=...)
 
 
 class GuideDepartureSerializer(serializers.ModelSerializer):

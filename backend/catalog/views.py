@@ -9,20 +9,25 @@ GET /api/guides/<id>?lang=          public guide profile (no email/phone)
 """
 from datetime import datetime, timedelta
 
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Q, Exists, F, FloatField, IntegerField, OuterRef, Prefetch, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from core.exceptions import ApiError
 from core.lang import request_lang
+from core.permissions import role_required
 
 from accounts.models import Guide
 
 from .models import Departure, Destination, PackageTranslation, Review, TourPackage, TourPhoto
-from .serializers import DestinationSerializer, GuideProfileSerializer, TourDetailSerializer, TourListSerializer
+from .serializers import (DestinationSerializer, GuideProfileSerializer, ReviewCreateSerializer, ReviewSerializer,
+                          TourDetailSerializer, TourListSerializer)
 
 ORDERINGS = {          # whitelist: never pass user input straight to order_by()
     "price": ("base_price",), "-price": ("-base_price",),
@@ -169,7 +174,6 @@ class TourListView(generics.ListAPIView):
 
 class TourDetailView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
-    authentication_classes = []
     serializer_class = TourDetailSerializer
 
     def get_serializer_context(self):
@@ -183,6 +187,84 @@ class TourDetailView(generics.RetrieveAPIView):
             Prefetch("reviews", queryset=reviews, to_attr="recent_reviews"),
             Prefetch("photos", queryset=TourPhoto.objects.order_by("sort_order", "id"), to_attr="ordered_photos"),
         )
+
+
+class ReviewCreateView(APIView):
+    permission_classes = [role_required("tourist")]
+
+    @extend_schema(request=ReviewCreateSerializer, responses={201: ReviewSerializer})
+    def post(self, request, pk=None):
+        payload = request.data.copy()
+        if pk is not None:
+            payload["package"] = pk
+        serializer = ReviewCreateSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        package_id = pk or data["package"]
+
+        try:
+            package = TourPackage.objects.get(pk=package_id)
+        except TourPackage.DoesNotExist:
+            raise ApiError("tour_not_found", "errors.tour.not_found", "Tour not found.", 404)
+
+        from bookings.models import Booking, Payment
+        eligible = Booking.objects.filter(
+            user=request.user,
+            departure__package=package,
+            status=Booking.COMPLETED,
+            departure__end_at__lte=timezone.now(),
+            payments__status=Payment.SUCCESS,
+        ).exists()
+        if not eligible:
+            raise ApiError(
+                "review_not_eligible",
+                "errors.review.not_eligible",
+                "Only tourists who bought and completed this tour can leave a review.",
+                403,
+            )
+
+        try:
+            with transaction.atomic():
+                review = Review.objects.create(
+                    user=request.user,
+                    package=package,
+                    rating=data["rating"],
+                    comment=data.get("comment", ""),
+                )
+                from bookings.audit import audit
+                audit(request.user, "create", "reviews", review.pk, None,
+                      {"package": package.pk, "rating": review.rating})
+        except IntegrityError:
+            raise ApiError(
+                "review_already_exists",
+                "errors.review.already_exists",
+                "You have already reviewed this tour.",
+                409,
+            )
+
+        return Response(ReviewSerializer(review).data, status=status.HTTP_201_CREATED)
+
+
+class ReviewDeleteView(APIView):
+    permission_classes = [role_required("tourist")]
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, pk):
+        try:
+            review = Review.objects.select_related("package").get(pk=pk)
+        except Review.DoesNotExist:
+            raise ApiError("review_not_found", "errors.review.not_found", "Review not found.", 404)
+        if review.user_id != request.user.pk:
+            raise ApiError("review_forbidden", "errors.review.forbidden",
+                           "You can only delete your own review.", 403)
+
+        review_id = review.pk
+        package_id = review.package_id
+        review.delete()
+        from bookings.audit import audit
+        audit(request.user, "delete", "reviews", review_id,
+              {"package": package_id, "rating": review.rating}, None)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class GuideProfileView(generics.RetrieveAPIView):

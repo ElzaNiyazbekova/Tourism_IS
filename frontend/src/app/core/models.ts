@@ -21,7 +21,7 @@ export interface GuideDeparture {
 export interface GuideProfile extends GuideBrief {
   member_since: string; completed_count: number; upcoming_departures: GuideDeparture[];
 }
-export interface Review { id: number; rating: number; comment: string; author: string; created_at: string; }
+export interface Review { id: number; rating: number; comment: string; author: string; mine: boolean; created_at: string; }
 export interface Tour {
   id: number; title: string; description: string; destination: Destination;
   base_price: string;                      // DECIMAL arrives as a string, e.g. "15000.00"

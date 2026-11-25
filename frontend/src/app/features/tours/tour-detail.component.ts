@@ -44,8 +44,8 @@ import { errorText, toApiError } from '../../core/api-error';
           <div class="position-relative">
             <img class="gallery-main" [src]="ph.url" [alt]="ph.caption || t.title">
             @if (t.photos.length > 1) {
-              <button type="button" class="gallery-nav start-0 ms-2" (click)="step(t.photos.length, -1)" [attr.aria-label]="'tours.photo_prev' | translate">‹</button>
-              <button type="button" class="gallery-nav end-0 me-2" (click)="step(t.photos.length, 1)" [attr.aria-label]="'tours.photo_next' | translate">›</button>
+              <button type="button" class="gallery-nav start-0 ms-2" (click)="previousPhoto(t.photos.length)" [attr.aria-label]="'tours.photo_prev' | translate">‹</button>
+              <button type="button" class="gallery-nav end-0 me-2" (click)="nextPhoto(t.photos.length)" [attr.aria-label]="'tours.photo_next' | translate">›</button>
             }
           </div>
           <figcaption class="small text-muted mt-1">
@@ -147,9 +147,42 @@ import { errorText, toApiError } from '../../core/api-error';
           <div class="border rounded p-2 mb-2 bg-white">
             <span class="text-warning">{{ stars(r.rating) }}</span> <strong class="ms-1">{{ r.author }}</strong>
             <span class="text-muted small ms-2">{{ r.created_at | appDate }}</span>
+            @if (r.mine) {
+              @if (deleteConfirmId() === r.id) {
+                <span class="float-end ms-2">
+                  <button type="button" class="btn btn-danger btn-sm me-1" (click)="deleteReview(r.id)">Delete</button>
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="deleteConfirmId.set(null)">Cancel</button>
+                </span>
+              } @else {
+                <button type="button" class="btn btn-outline-danger btn-sm float-end" (click)="deleteConfirmId.set(r.id)">
+                  {{ 'tours.review_delete' | translate }}
+                </button>
+              }
+            }
             <div>{{ r.comment }}</div>
           </div>
         }
+      }
+      @if (auth.role() === 'tourist' && !t.reviews.some(isMine)) {
+        <form class="border rounded p-3 mt-3" [formGroup]="reviewForm" (ngSubmit)="submitReview(t)" novalidate>
+          @if (reviewError()) { <div class="alert alert-danger">{{ reviewError() }}</div> }
+          @if (reviewSubmitted()) { <div class="alert alert-success">{{ 'tours.review_submitted' | translate }}</div> }
+          <div class="row g-2 align-items-end">
+            <div class="col-sm-2">
+              <label class="form-label small" for="review-rating">{{ 'tours.review_rating' | translate }}</label>
+              <select id="review-rating" class="form-select" formControlName="rating">
+                @for (n of [5, 4, 3, 2, 1]; track n) { <option [value]="n">{{ n }}</option> }
+              </select>
+            </div>
+            <div class="col-sm-8">
+              <label class="form-label small" for="review-comment">{{ 'tours.review_comment' | translate }}</label>
+              <input id="review-comment" class="form-control" formControlName="comment" maxlength="2000">
+            </div>
+            <div class="col-sm-2">
+              <button class="btn btn-primary w-100" type="submit" [disabled]="reviewSubmitting()">{{ 'tours.review_submit' | translate }}</button>
+            </div>
+          </div>
+        </form>
       }
     }
   `,
@@ -172,10 +205,19 @@ export class TourDetailComponent {
   error = signal<ApiErrorBody | null>(null);
   booked = signal<Booking | null>(null);
   photoIdx = signal(0);
+  reviewSubmitting = signal(false);
+  reviewSubmitted = signal(false);
+  reviewError = signal('');
+  deleteConfirmId = signal<number | null>(null);
+  readonly isMine = (review: { mine: boolean }) => review.mine;
 
   form = this.fb.nonNullable.group({
     travelers_count: [1, [Validators.required, Validators.min(1), Validators.max(50)]],
     special_request: ['', Validators.maxLength(500)],
+  });
+  reviewForm = this.fb.nonNullable.group({
+    rating: [5, [Validators.required, Validators.min(1), Validators.max(5)]],
+    comment: ['', Validators.maxLength(2000)],
   });
   private travelers = signal(1);
   total = computed(() => Number(this.tour()?.base_price ?? 0) * this.travelers());
@@ -216,5 +258,33 @@ export class TourDetailComponent {
 
   errMsg(e: ApiErrorBody): string { return errorText(this.translate, e.message_key, e.message); }
   step(count: number, dir: number): void { this.photoIdx.update(i => (i + dir + count) % count); }
+  previousPhoto(count: number): void { this.step(count, -1); }
+  nextPhoto(count: number): void { this.step(count, 1); }
   stars(n: number): string { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+
+  submitReview(tour: TourDetail): void {
+    if (this.reviewForm.invalid) return;
+    this.reviewSubmitting.set(true);
+    this.reviewSubmitted.set(false);
+    this.reviewError.set('');
+    const value = this.reviewForm.getRawValue();
+    this.toursApi.review(tour.id, Number(value.rating), value.comment).subscribe({
+      next: () => {
+        this.reviewSubmitting.set(false);
+        this.reviewSubmitted.set(true);
+        this.load();
+      },
+      error: error => {
+        this.reviewSubmitting.set(false);
+        this.reviewError.set(errorText(this.translate, error.error?.message_key, error.error?.message));
+      },
+    });
+  }
+
+  deleteReview(id: number): void {
+    this.toursApi.deleteReview(id).subscribe({
+      next: () => this.load(),
+      error: error => this.reviewError.set(errorText(this.translate, error.error?.message_key, error.error?.message)),
+    });
+  }
 }

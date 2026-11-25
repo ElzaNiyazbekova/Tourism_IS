@@ -3,12 +3,13 @@ Tests: staff CRUD for tours and departures, public list, overlap rule.   Owner: 
 Run:  python manage.py test catalog
 """
 from datetime import timedelta
+from decimal import Decimal
 
 from django.test import TestCase
 from django.utils import timezone
 
-from bookings.models import AuditLog, Booking
-from catalog.models import Departure, TourPackage
+from bookings.models import AuditLog, Booking, Payment
+from catalog.models import Departure, Review, TourPackage
 from catalog.services import assert_no_guide_overlap
 from core.exceptions import ApiError
 from core.testing import client_for, make_departure, make_destination, make_guide, make_package, make_user
@@ -293,3 +294,70 @@ class TourFilterTests(TestCase):
         for q in ("duration_min=abc", "duration_max=-1", "rating_min=9", "rating_min=x", "date_from=2026-13-40"):
             r = client_for().get("/api/tours?" + q)
             self.assertEqual(r.status_code, 400, q)
+
+
+class ReviewEligibilityTests(TestCase):
+    def setUp(self):
+        self.tourist = make_user("tourist")
+        self.package = make_package("Completed Tour")
+        self.departure = make_departure(package=self.package, start_in_days=-10)
+        self.client = client_for(self.tourist)
+
+    def completed_booking(self):
+        booking = Booking.objects.create(
+            booking_ref=f"BK-TEST-{Booking.objects.count() + 1}",
+            user=self.tourist,
+            departure=self.departure,
+            booking_date=timezone.localdate() - timedelta(days=12),
+            travel_date=timezone.localdate(self.departure.start_at),
+            travelers_count=1,
+            total_cost=Decimal("15000.00"),
+            status=Booking.COMPLETED,
+        )
+        Payment.objects.create(
+            booking=booking,
+            amount=booking.total_cost,
+            status=Payment.SUCCESS,
+            transaction_ref=f"TX-TEST-{booking.pk}",
+            paid_at=timezone.now(),
+        )
+        return booking
+
+    def test_only_paid_completed_traveler_can_review(self):
+        response = self.client.post("/api/reviews", {"package": self.package.pk, "rating": 5, "comment": "Great"})
+        self.assertEqual(response.status_code, 403)
+
+        self.completed_booking()
+        response = self.client.post("/api/reviews", {"package": self.package.pk, "rating": 5, "comment": "Great"})
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertTrue(Review.objects.filter(user=self.tourist, package=self.package, rating=5).exists())
+
+        response = self.client.post(f"/api/tours/{self.package.pk}/reviews", {"rating": 4})
+        self.assertEqual(response.status_code, 409)
+
+    def test_tourist_can_delete_and_recreate_own_review(self):
+        self.completed_booking()
+        created = self.client.post("/api/reviews", {"package": self.package.pk, "rating": 5, "comment": "First"})
+        self.assertEqual(created.status_code, 201)
+        review_id = created.json()["id"]
+
+        deleted = self.client.delete(f"/api/reviews/{review_id}")
+        self.assertEqual(deleted.status_code, 204)
+        self.assertFalse(Review.objects.filter(pk=review_id).exists())
+
+        recreated = self.client.post("/api/reviews", {"package": self.package.pk, "rating": 4, "comment": "Second"})
+        self.assertEqual(recreated.status_code, 201)
+
+    def test_tourist_cannot_delete_someone_elses_review(self):
+        self.completed_booking()
+        review = Review.objects.create(user=make_user("tourist"), package=self.package, rating=5)
+        response = self.client.delete(f"/api/reviews/{review.pk}")
+        self.assertEqual(response.status_code, 403)
+
+    def test_tour_detail_marks_owned_review_for_delete_button(self):
+        self.completed_booking()
+        Review.objects.create(user=self.tourist, package=self.package, rating=5, comment="Mine")
+        response = self.client.get(f"/api/tours/{self.package.pk}")
+        self.assertEqual(response.status_code, 200)
+        owned = next(review for review in response.json()["reviews"] if review["comment"] == "Mine")
+        self.assertTrue(owned["mine"])

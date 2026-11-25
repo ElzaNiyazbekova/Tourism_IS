@@ -44,6 +44,11 @@ Password for **every** account: `Demo#Tourism2026` (override with `DEMO_PASSWORD
 | admin | admin@example.com |
 
 Reload demo data: `python manage.py seed_demo --reset` (in Docker: `docker compose exec backend python manage.py seed_demo --reset`).
+For a guaranteed completed-tour review scenario, log in as `tourist1@example.com` and open the
+`Almaty City Highlights` tour. It has a completed booking and successful payment, but no review;
+`POST /api/tours/{id}/reviews` with `{"rating": 5, "comment": "Great tour"}` will return `201`.
+The tourist can replace the review: `DELETE /api/reviews/{review_id}` deletes only their own
+review, after which the same endpoint accepts a new rating and comment.
 Staff screens (`/admin`) are in Phase 2; mandatory MFA is still to come.
 
 **Tour photos:** after `git pull` just run `python manage.py migrate` - it adds the 30 demo photos (3 per tour, free licences from Wikimedia Commons, credits in `backend/catalog/demo_photos/credits.json`) to an existing demo database. Staff upload more in **Admin → Tours → Edit → Photos** (JPEG/PNG/WebP, max 5 MB, max 10 per tour); uploaded files go to `backend/media/` (git-ignored).

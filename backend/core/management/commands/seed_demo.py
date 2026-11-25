@@ -194,6 +194,58 @@ class Command(BaseCommand):
             dep.seats_available = dep.seats_total - used[dep.pk]
             dep.save(update_fields=["seats_available"])
 
+        # Guaranteed review-eligibility example for manual/API testing.
+        review_tourist = tourists[0]
+        review_package = packages[0]
+        review_departure = next(dep for dep in departures
+                                if dep.package_id == review_package.pk and dep.start_at < now)
+        Review.objects.filter(user=review_tourist, package=review_package).delete()
+        review_booking = Booking.objects.filter(
+            user=review_tourist,
+            departure=review_departure,
+        ).first()
+        if review_booking is None:
+            travel = timezone.localtime(review_departure.start_at).date()
+            review_booking = Booking.objects.create(
+                booking_ref=f"TMP-{uuid.uuid4().hex[:8]}",
+                user=review_tourist,
+                departure=review_departure,
+                booking_date=travel - timedelta(days=10),
+                travel_date=travel,
+                travelers_count=1,
+                total_cost=review_package.base_price,
+                status=Booking.COMPLETED,
+            )
+            review_booking.booking_ref = f"BK-{review_booking.pk:04d}"
+            review_booking.save(update_fields=["booking_ref"])
+            review_departure.seats_available -= 1
+            review_departure.save(update_fields=["seats_available"])
+        else:
+            was_non_completed = review_booking.status != Booking.COMPLETED
+            review_booking.status = Booking.COMPLETED
+            review_booking.expires_at = None
+            review_booking.save(update_fields=["status", "expires_at"])
+            if was_non_completed:
+                review_departure.seats_available = max(0, review_departure.seats_available - 1)
+                review_departure.save(update_fields=["seats_available"])
+
+        Payment.objects.filter(booking=review_booking).delete()
+        Payment.objects.create(
+            booking=review_booking,
+            amount=review_booking.total_cost,
+            status=Payment.SUCCESS,
+            transaction_ref=f"TX-REVIEW-{uuid.uuid4().hex[:10].upper()}",
+            paid_at=now - timedelta(days=2),
+        )
+        AuditLog.objects.create(
+            user=review_tourist,
+            action="seed",
+            table_name="bookings",
+            record_id=review_booking.pk,
+            new_value={"ref": review_booking.booking_ref, "status": Booking.COMPLETED,
+                       "review_eligible": True},
+        )
+
         by_status = {s: sum(1 for b in made if b.status == s) for s in Booking.STATUSES}
         self.stdout.write(self.style.SUCCESS(
             f"Seeded {len(dests)} destinations, {len(packages)} packages, {len(guides)} guides, "

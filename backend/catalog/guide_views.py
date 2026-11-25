@@ -27,7 +27,7 @@ from core.permissions import role_required
 from .models import Departure
 
 LANG_CODES = ("en", "ru", "kk")
-SEAT_HOLDING = [Booking.PENDING, Booking.CONFIRMED, Booking.COMPLETED, Booking.NEEDS_REVIEW]   # everything but Cancelled
+SEAT_HOLDING = [Booking.PENDING, Booking.CONFIRMED, Booking.COMPLETED]   # Cancelled and Expired release seats
 
 
 def own_guide(user):

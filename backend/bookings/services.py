@@ -18,7 +18,9 @@ from catalog.models import Departure
 from catalog.services import next_available_departure
 from core.exceptions import ApiError
 
-from .models import AuditLog, Booking
+from .models import AuditLog, Booking, Notification
+
+_expire_last_run = None
 
 
 def _rejected(code, key, message, status_code, departure, min_seats=1):
@@ -78,3 +80,42 @@ def create_booking(user, departure_id, travelers_count, special_request=""):
     except IntegrityError:
         # A DB rule caught something the checks above missed (e.g. a race on the partial unique index).
         raise ApiError("duplicate_booking", "errors.booking.duplicate", "You already booked this departure.", 409)
+
+
+def expire_stale_pending():
+    """Expire overdue unpaid Pending bookings, one row at a time under locks."""
+    from django.utils import timezone
+    now = timezone.now()
+    count = 0
+    stale = (Booking.objects.filter(status=Booking.PENDING, expires_at__isnull=False, expires_at__lte=now)
+             .exclude(payments__status="Success")
+             .select_related("departure", "user").order_by("pk"))
+    for booking in stale.iterator():
+        with transaction.atomic():
+            dep = Departure.objects.select_for_update().get(pk=booking.departure_id)
+            locked = Booking.objects.select_for_update().select_related("departure", "user").get(pk=booking.pk)
+            if (locked.status != Booking.PENDING or locked.expires_at is None
+                    or locked.expires_at > now or locked.payments.filter(status="Success").exists()):
+                continue
+            old = {"status": locked.status, "expires_at": locked.expires_at.isoformat()}
+            locked.status = Booking.EXPIRED
+            locked.save(update_fields=["status"])
+            dep.seats_available += locked.travelers_count
+            dep.save(update_fields=["seats_available"])
+            AuditLog.objects.create(user=None, action="status_change", table_name="bookings", record_id=locked.pk,
+                                    old_value=old, new_value={"status": Booking.EXPIRED, "reason": "48h_unpaid"})
+            Notification.objects.create(user=locked.user, booking=locked, type="expired",
+                                        message_key="notifications.booking_expired",
+                                        params={"booking_ref": locked.booking_ref})
+            count += 1
+    return count
+
+
+def expire_stale_pending_throttled():
+    """Call from self-healing GET endpoints at most once every 30 seconds per process."""
+    global _expire_last_run
+    now = timezone.now()
+    if _expire_last_run is not None and (now - _expire_last_run).total_seconds() < 30:
+        return 0
+    _expire_last_run = now
+    return expire_stale_pending()

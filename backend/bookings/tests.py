@@ -208,3 +208,46 @@ class AnalystReportTests(TestCase):
         for url in ("/api/admin/tours", "/api/admin/departures", "/api/admin/guides", "/api/admin/destinations"):
             self.assertEqual(c.get(url).status_code, 403, url)
         self.assertEqual(c.get("/api/bookings/mine").status_code, 403)
+
+
+class ExpiredBookingTests(TestCase):
+    def setUp(self):
+        self.tourist = make_user("tourist")
+        self.dep = make_departure(seats=5)
+        self.booking = book(client_for(self.tourist), self.dep, 2).data
+        self.booking = Booking.objects.get(pk=self.booking["id"])
+
+    def test_expire_stale_pending_returns_seats_and_is_idempotent(self):
+        from bookings.services import expire_stale_pending
+        Booking.objects.filter(pk=self.booking.pk).update(expires_at=timezone.now()-timedelta(minutes=1))
+        self.assertEqual(expire_stale_pending(), 1)
+        self.booking.refresh_from_db(); self.dep.refresh_from_db()
+        self.assertEqual(self.booking.status, Booking.EXPIRED)
+        self.assertEqual(self.dep.seats_available, 5)
+        self.assertEqual(expire_stale_pending(), 0)
+
+    def test_paid_pending_is_not_expired(self):
+        from bookings.payments import pay_booking
+        pay_booking(self.tourist, self.booking.pk, "pay")
+        Booking.objects.filter(pk=self.booking.pk).update(expires_at=timezone.now()-timedelta(minutes=1))
+        from bookings.services import expire_stale_pending
+        expire_stale_pending()
+        self.booking.refresh_from_db()
+        self.assertEqual(self.booking.status, Booking.CONFIRMED)
+
+    def test_expired_can_be_rebooked_and_expired_pay_is_rejected(self):
+        Booking.objects.filter(pk=self.booking.pk).update(status=Booking.EXPIRED,
+                                                           expires_at=timezone.now()-timedelta(minutes=1))
+        self.dep.seats_available = 5; self.dep.save(update_fields=["seats_available"])
+        r = book(client_for(self.tourist), self.dep, 1)
+        self.assertEqual(r.status_code, 201)
+        r = client_for(self.tourist).post(f"/api/bookings/{self.booking.pk}/pay", {"result":"pay"}, format="json")
+        self.assertEqual(r.status_code, 409)
+
+    def test_database_rejects_needs_review(self):
+        from django.db import IntegrityError, transaction
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Booking.objects.create(booking_ref="BK-XBAD", user=make_user("tourist"), departure=self.dep,
+                    booking_date=timezone.localdate(), travel_date=timezone.localdate(), travelers_count=1,
+                    total_cost=0, status="Needs review")

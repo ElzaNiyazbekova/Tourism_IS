@@ -109,7 +109,7 @@ class FlexStateView(APIView):
 
 
 # ---------------------------------------------------------------------------------------- timeline (U5)
-_STATUS_EVENT = {"Confirmed": "confirmed", "Completed": "completed", "Needs review": "needs_review"}
+_STATUS_EVENT = {"Confirmed": "confirmed", "Completed": "completed", "Expired": "expired"}
 
 
 class TimelineView(APIView):

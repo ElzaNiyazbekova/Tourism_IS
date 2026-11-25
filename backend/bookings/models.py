@@ -10,8 +10,8 @@ from django.db.models import F, Q
 
 
 class Booking(models.Model):
-    PENDING, CONFIRMED, CANCELLED, COMPLETED, NEEDS_REVIEW = "Pending", "Confirmed", "Cancelled", "Completed", "Needs review"
-    STATUSES = [PENDING, CONFIRMED, CANCELLED, COMPLETED, NEEDS_REVIEW]
+    PENDING, CONFIRMED, CANCELLED, COMPLETED, EXPIRED = "Pending", "Confirmed", "Cancelled", "Completed", "Expired"
+    STATUSES = [PENDING, CONFIRMED, CANCELLED, COMPLETED, EXPIRED]
     ACTIVE = [PENDING, CONFIRMED]          # statuses that hold a seat and block a duplicate
 
     id = models.AutoField(primary_key=True, db_column="booking_id")
@@ -38,9 +38,8 @@ class Booking(models.Model):
             models.CheckConstraint(condition=Q(travelers_count__gt=0), name="ck_bookings_travelers"),
             models.CheckConstraint(condition=Q(total_cost__gte=0), name="ck_bookings_cost"),
             models.CheckConstraint(
-                condition=Q(status__in=["Pending", "Confirmed", "Cancelled", "Completed", "Needs review"]),
+                condition=Q(status__in=["Pending", "Confirmed", "Cancelled", "Completed", "Expired"]),
                 name="ck_bookings_status"),
-            # rule 4: one ACTIVE booking per tourist per departure
             models.UniqueConstraint(fields=["user", "departure"], condition=Q(status__in=["Pending", "Confirmed"]),
                                     name="uq_bookings_active_user_departure"),
         ]

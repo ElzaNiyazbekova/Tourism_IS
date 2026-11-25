@@ -165,7 +165,9 @@ class Command(BaseCommand):
             seen.add((user.pk, dep.pk))
             past = dep.start_at < now
             status = rng.choice([Booking.COMPLETED] * 4 + [Booking.CANCELLED]) if past else \
-                rng.choice([Booking.CONFIRMED] * 4 + [Booking.PENDING] * 2 + [Booking.CANCELLED] * 2 + [Booking.NEEDS_REVIEW])
+                rng.choice([Booking.CONFIRMED] * 4 + [Booking.PENDING] * 2 + [Booking.CANCELLED] * 2)
+            if status == Booking.PENDING and rng.random() < 0.15:
+                status = Booking.EXPIRED
             travel = timezone.localtime(dep.start_at).date()
             booked = travel - timedelta(days=rng.randint(5, 30)) if past else min(timezone.localdate() - timedelta(days=rng.randint(0, 5)), travel)
             b = Booking.objects.create(

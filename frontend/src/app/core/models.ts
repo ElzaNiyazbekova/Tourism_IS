@@ -48,7 +48,7 @@ export interface TourDetail extends Tour { departures: Departure[]; reviews: Rev
 export interface Booking {
   id: number; booking_ref: string; package_id: number; package_title: string; start_at: string; guide_name: string;
   booking_date: string; travel_date: string; travelers_count: number; total_cost: string;
-  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Needs review';
+  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed' | 'Expired';
   special_request: string; expires_at: string | null; created_at: string;
 }
 

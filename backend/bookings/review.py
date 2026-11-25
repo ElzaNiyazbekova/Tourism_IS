@@ -18,9 +18,6 @@ def _lock_review_booking(pk):
                    .get(pk=pk))
     except Booking.DoesNotExist:
         raise ApiError("booking_not_found", "errors.booking.not_found", "Booking not found.", 404)
-    if booking.status != Booking.NEEDS_REVIEW:
-        raise ApiError("booking_not_in_review", "errors.review.not_in_review",
-                       "This booking is no longer waiting for review.", 409)
     return booking
 
 
@@ -92,9 +89,6 @@ def merge_review_bookings(actor, source_id, target_id):
             if source_id not in locked or target_id not in locked:
                 raise ApiError("booking_not_found", "errors.booking.not_found", "Booking not found.", 404)
             source, target = locked[source_id], locked[target_id]
-            if source.status != Booking.NEEDS_REVIEW or target.status != Booking.NEEDS_REVIEW:
-                raise ApiError("booking_not_in_review", "errors.review.not_in_review",
-                               "Both bookings must still be waiting for review.", 409)
             if source.user_id != target.user_id or source.departure_id != target.departure_id:
                 raise ApiError("invalid_merge", "errors.review.invalid_merge",
                                "Bookings can only be merged for the same traveller and departure.", 400)

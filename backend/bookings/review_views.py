@@ -34,7 +34,7 @@ class ReviewBookingsView(generics.ListAPIView):
     pagination_class = ReviewPagination
 
     def get_queryset(self):
-        return (Booking.objects.filter(status=Booking.NEEDS_REVIEW)
+        return (Booking.objects.all()
                 .select_related("user", "departure__guide__user", "departure__package")
                 .prefetch_related("departure__package__translations", "payments")
                 .order_by("created_at", "id"))

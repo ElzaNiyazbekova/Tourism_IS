@@ -67,7 +67,7 @@ class Command(BaseCommand):
                 booking_ref=f"TMP-{uuid.uuid4().hex[:8]}", user=demo_users[email], departure=departure,
                 booking_date=timezone.localdate(), travel_date=timezone.localtime(departure.start_at).date(),
                 travelers_count=1, total_cost=departure.package.base_price,
-                status=Booking.NEEDS_REVIEW, special_request=request,
+                status=Booking.PENDING, special_request=request,
             )
             booking.booking_ref = f"BK-{booking.pk:04d}"
             booking.save(update_fields=["booking_ref"])

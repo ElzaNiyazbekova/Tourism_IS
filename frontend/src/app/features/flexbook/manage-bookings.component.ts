@@ -293,7 +293,7 @@ export class ManageBookingsComponent {
   }
   badge(b: Booking): string {
     const map: Record<string, string> = { Pending: 'text-bg-warning', Confirmed: 'text-bg-success', Cancelled: 'text-bg-secondary',
-                                          Completed: 'text-bg-primary', 'Needs review': 'text-bg-danger' };
+                                          Completed: 'text-bg-primary' };
     return 'badge ' + (map[b.status] ?? 'text-bg-light');
   }
 }

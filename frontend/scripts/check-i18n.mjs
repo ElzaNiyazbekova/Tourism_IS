@@ -19,7 +19,7 @@ for (const f of walk('src').filter(f => f.endsWith('.ts'))) {
 }
 for (const k of used) if (!files.en.has(k)) { console.error(`USED BUT MISSING: ${k}`); bad++; }
 // dynamic keys built in code
-for (const s of ['pending', 'confirmed', 'cancelled', 'completed', 'needs_review']) if (!files.en.has('status.' + s)) { console.error('MISSING status.' + s); bad++; }
+for (const s of ['pending', 'confirmed', 'cancelled', 'completed', 'needs_review', 'in_progress']) if (!files.en.has('status.' + s)) { console.error('MISSING status.' + s); bad++; }
 
 console.log(`${files.en.size} keys, ${used.size} used in templates/code, ${bad} problem(s)`);
 process.exit(bad ? 1 : 0);
